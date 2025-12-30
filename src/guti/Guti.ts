@@ -1,14 +1,31 @@
 import Phaser from 'phaser';
+import { NodeKey, NODES } from '../board/Nodes';
+
+export type Player = 'RED' | 'BLUE';
 
 export class Guti {
   sprite: Phaser.GameObjects.Arc;
+  nodeKey: NodeKey;
+  owner: Player;
 
   constructor(
     scene: Phaser.Scene,
-    x: number,
-    y: number,
+    nodeKey: NodeKey,
+    owner: Player,
     color: number
   ) {
-    this.sprite = scene.add.circle(x, y, 14, color);
+    this.nodeKey = nodeKey;
+    this.owner = owner;
+
+    const node = NODES[nodeKey];
+    this.sprite = scene.add.circle(node.x, node.y, 14, color);
+
+    this.sprite.setInteractive();
+  }
+
+  moveTo(nodeKey: NodeKey): void {
+    this.nodeKey = nodeKey;
+    const node = NODES[nodeKey];
+    this.sprite.setPosition(node.x, node.y);
   }
 }
