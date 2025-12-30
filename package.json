@@ -1,0 +1,28 @@
+{
+  "name": "gunti-game",
+  "version": "1.0.0",
+  "description": "This game is preparing to share a bengali traditional game",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bparvej/gunti-game.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bparvej/gunti-game/issues"
+  },
+  "homepage": "https://github.com/bparvej/gunti-game#readme",
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0"
+  }
+}
