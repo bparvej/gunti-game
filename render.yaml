@@ -1,8 +1,11 @@
 services:
   - type: web
-    name: phaser-node-game
+    name: gunti-game
     env: node
     plan: free
-    buildCommand: "npm install"
-    startCommand: "npm start"
+    buildCommand: "npm install && npm run build"
+    startCommand: "node server.js"
     autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
