@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/bparvej/gunti-game#readme",
   "dependencies": {
+    "express": "^4.18.0",
     "phaser": "^3.90.0"
   },
   "devDependencies": {
