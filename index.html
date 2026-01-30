@@ -2,25 +2,124 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bangla Guti Game</title>
 
   <style>
-    html, body {
+    * {
       margin: 0;
       padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
       width: 100%;
       height: 100%;
       background: #1e1e1e;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
     }
 
     #game {
-      width: 100%;
-      height: 100%;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+
+      canvas {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+      }
+    }
+
+    /* UI overlay */
+    #ui {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      width: 200px;
+      background: linear-gradient(135deg, #ffffffcc, #f0f8ffcc);
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+      backdrop-filter: blur(4px);
+      color: #111;
+      font-size: 14px;
+    }
+
+    #ui h3 { margin-bottom: 8px; font-size: 16px }
+    #ui-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px }
+    #ui-controls button { flex: 1; padding: 6px 8px; border-radius: 6px; border: none; cursor: pointer; background: linear-gradient(90deg,#4CAF50,#2196F3); color: white }
+    #ui-options { margin-top: 8px }
+    #ui-info p { margin: 4px 0 }
+    /* Ensure touch events are passed to the canvas on mobile */
+    #game, #game canvas { touch-action: none; -ms-touch-action: none; }
+
+    /* Move UI to bottom on small screens to avoid overlapping board center */
+    @media (max-width: 480px) {
+      #ui { right: 50%; transform: translateX(50%); bottom: 12px; top: auto; width: calc(100% - 24px); left: 12px; right: 12px }
+      #ui-controls button { padding: 8px 6px }
     }
   </style>
 </head>
 <body>
   <div id="game"></div>
+
+  <div id="ui">
+    <h3 id="ui-title">Guti Controls</h3>
+    <div id="ui-info">
+      <p id="ui-turn">Turn: RED</p>
+      <p id="ui-red">Red Captured: 0</p>
+      <p id="ui-blue">Blue Captured: 0</p>
+    </div>
+    <div id="ui-controls">
+      <button id="btn-theme">THEME</button>
+      <button id="btn-sound">SOUND</button>
+      <button id="btn-stats">STATS</button>
+      <button id="btn-undo">UNDO</button>
+    </div>
+    <div id="ui-options">
+      <label for="guti-shape">Guti Shape</label>
+      <select id="guti-shape">
+        <option value="circle">Round</option>
+        <option value="square">Square</option>
+        <option value="bar">ঝাড়ুর কাঠি</option>
+      </select>
+    </div>
+
+    <div id="ui-slider" style="margin-top:10px; display:none">
+      <label id="slider-label">Select move</label>
+      <input id="move-slider" type="range" min="0" max="0" value="0" style="width:100%" />
+      <div style="display:flex; gap:8px; margin-top:6px;">
+        <button id="btn-move" style="flex:1; background:linear-gradient(90deg,#ff7f50,#ff5252); color:white; border:none; padding:6px; border-radius:6px;">MOVE</button>
+        <button id="btn-cancel-move" style="flex:1; background:#ddd; border:none; padding:6px; border-radius:6px;">CANCEL</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Vite entry -->
   <script type="module" src="/src/main.ts"></script>

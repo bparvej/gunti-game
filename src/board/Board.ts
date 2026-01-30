@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 
 export class Board {
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, lineColor: number = 0x000000) {
     const g = scene.add.graphics();
-    g.lineStyle(3, 0x000000);
+    g.lineStyle(3, lineColor);
 
     const cx = 300;
     const cy = 300;
