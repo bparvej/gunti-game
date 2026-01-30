@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 import { GameScene } from '../scenes/GameScene';
+import { ThemeManager } from '../managers/ThemeManager';
+
+const themeManager = new ThemeManager();
+const currentTheme = themeManager.getCurrentTheme();
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -9,7 +13,14 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   width: 600,
   height: 600,
 
-  backgroundColor: '#ffffff',
+  backgroundColor: currentTheme.backgroundColor,
 
-  scene: GameScene         // 🔴 single scene (auto-start)
+  scene: GameScene,
+
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  }
 };
+
+export { themeManager };
