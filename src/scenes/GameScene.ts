@@ -6,325 +6,164 @@ import { WIN_LINES } from '../board/WinLines';
 import { SoundManager } from '../managers/SoundManager';
 import { ThemeManager } from '../managers/ThemeManager';
 import { StatsManager } from '../managers/StatsManager';
-import { MoveHistoryManager, Move } from '../managers/MoveHistoryManager';
+import { MoveHistoryManager } from '../managers/MoveHistoryManager';
 import { themeManager } from '../config/gameConfig';
 
 export class GameScene extends Phaser.Scene {
+  // ── Game State ──
   gutis: Guti[] = [];
   selectedGuti: Guti | null = null;
-
   occupied: Partial<Record<NodeKey, Guti>> = {};
-
   currentTurn: Player = 'RED';
-  moveHints: Phaser.GameObjects.Circle[] = [];
-  moveCount: number = 0;
+  moveHints: Phaser.GameObjects.Arc[] = [];
+  moveCount = 0;
+  gameEnded = false;
+  gutiShape: 'circle' | 'square' | 'bar' = 'circle';
+  sliderTargets: NodeKey[] = [];
 
-  // Managers
+  // ── Managers ──
   soundManager!: SoundManager;
   themeManager!: ThemeManager;
   statsManager!: StatsManager;
   moveHistoryManager!: MoveHistoryManager;
 
-  // UI Elements
+  // ── UI Refs (Phaser objects) ──
   turnText!: Phaser.GameObjects.Text;
-  redScoreText!: Phaser.GameObjects.Text;
-  blueScoreText!: Phaser.GameObjects.Text;
-  themeButtonText!: Phaser.GameObjects.Text;
-  soundButtonText!: Phaser.GameObjects.Text;
-  statsButtonText!: Phaser.GameObjects.Text;
-  undoButtonText!: Phaser.GameObjects.Text;
+  gearText!: Phaser.GameObjects.Text;
 
-  redCaptured: number = 0;
-  blueCaptured: number = 0;
-  gutiShape: 'circle' | 'square' | 'bar' = 'circle';
-  gameEnded: boolean = false;
+  // ── Settings Panel ──
+  settingsPanel!: Phaser.GameObjects.Group;
+  darkOverlay!: Phaser.GameObjects.Rectangle;
+  settingsOpen = false;
+  bgImage: Phaser.GameObjects.Image | null = null;
 
-  sliderTargets: NodeKey[] = [];
   constructor() {
     super('GameScene');
   }
 
   create(): void {
-    // Initialize managers
     this.soundManager = new SoundManager(this);
     this.themeManager = themeManager;
     this.statsManager = new StatsManager();
     this.moveHistoryManager = new MoveHistoryManager();
 
     const theme = this.themeManager.getCurrentTheme();
-
-    // Set background color
     this.cameras.main.setBackgroundColor(theme.backgroundColor);
 
-    // Draw board
+    // ── Board & Nodes ──
     new Board(this, theme.boardLineColor);
+    this.drawNodes(theme);
 
-    // Draw nodes
-    Object.entries(NODES).forEach(([key, n]) => {
-      const dot = this.add.circle(n.x, n.y, 8, theme.boardLineColor);
-      dot.setInteractive();
-
-      dot.on('pointerdown', () => {
-        this.hideMoveSlider();
-        this.tryMove(key as NodeKey);
-      });
-    });
-
-    // ---- GUTI SETUP ----
+    // ── Gutis (3 each) ──
     this.addGuti('T', 'RED', theme.redColor);
     this.addGuti('TL', 'RED', theme.redColor);
     this.addGuti('TR', 'RED', theme.redColor);
-
     this.addGuti('B', 'BLUE', theme.blueColor);
     this.addGuti('BL', 'BLUE', theme.blueColor);
     this.addGuti('BR', 'BLUE', theme.blueColor);
 
-    // Expose scene to DOM controls
+    // ── In-Canvas UI ──
+    this.createTopBar(theme);
+    this.createGearButton();
+    this.createSettingsPanel(theme);
+    this.createBottomBar(theme);
+    this.bindSliderEvents();
+
+    // ── Background Image Input ──
+    const bgInput = document.getElementById('bg-image-input') as HTMLInputElement;
+    if (bgInput) {
+      bgInput.addEventListener('change', (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) this.uploadBackgroundImage(file);
+        bgInput.value = '';
+      });
+    }
+
     (window as any).gameScene = this;
-
-    // UI Setup (DOM)
-    this.bindDOMUI(theme);
   }
-  bindDOMUI(theme: any): void {
-    // Set simple Phaser text for backward compatibility and internal updates
-    this.turnText = this.add.text(20, 20, 'Turn: RED', { fontSize: '18px', color: theme.textColor }).setDepth(5);
 
-    // Hook DOM elements
-    const btnTheme = document.getElementById('btn-theme');
-    const btnSound = document.getElementById('btn-sound');
-    const btnStats = document.getElementById('btn-stats');
-    const btnUndo = document.getElementById('btn-undo');
-    const uiTurn = document.getElementById('ui-turn');
-    const uiRed = document.getElementById('ui-red');
-    const uiBlue = document.getElementById('ui-blue');
-    const selectShape = document.getElementById('guti-shape') as HTMLSelectElement | null;
+  // ────────────────────────────────────────────
+  //  BOARD / NODES
+  // ────────────────────────────────────────────
 
-    if (btnTheme) {
-      btnTheme.addEventListener('click', () => this.changeTheme());
-      btnTheme.innerText = `THEME: ${theme.name}`;
-    }
-    if (btnSound) btnSound.addEventListener('click', () => this.toggleSound());
-    if (btnStats) btnStats.addEventListener('click', () => this.showStats());
-    if (btnUndo) btnUndo.addEventListener('click', () => this.undoMove());
-    if (selectShape) {
-      selectShape.value = this.gutiShape;
-      selectShape.addEventListener('change', (e) => {
-        const newShape = (e.target as HTMLSelectElement).value as 'circle' | 'square' | 'bar';
-        this.gutiShape = newShape;
-        // Immediately apply new shape to all existing gutis
-        this.applyShapeToAll(newShape);
+  private drawNodes(theme: any): void {
+    Object.entries(NODES).forEach(([key, n]) => {
+      const dot = this.add.circle(n.x, n.y, 8, theme.boardLineColor).setDepth(1);
+      dot.setInteractive();
+      dot.on('pointerdown', () => {
+        if (this.settingsOpen) { this.closeSettings(); return; }
+        this.hideMoveSlider();
+        this.tryMove(key as NodeKey);
       });
-    }
-
-    // Hook move slider and buttons
-    const moveSlider = document.getElementById('move-slider') as HTMLInputElement | null;
-    const btnMove = document.getElementById('btn-move');
-    const btnCancelMove = document.getElementById('btn-cancel-move');
-    const sliderLabel = document.getElementById('slider-label');
-
-    if (moveSlider) {
-      moveSlider.addEventListener('input', () => {
-        const idx = parseInt(moveSlider.value, 10) || 0;
-        const target = this.sliderTargets[idx];
-        if (sliderLabel && target) sliderLabel.innerText = `Move to ${target}`;
-        // highlight selected slider target
-        this.clearHints();
-        if (target) this.drawHint(target, this.themeManager.getCurrentTheme().hintNormalColor);
-      });
-    }
-
-    if (btnMove) btnMove.addEventListener('click', () => {
-      if (!this.selectedGuti) return;
-      const moveIdx = moveSlider ? parseInt(moveSlider.value, 10) || 0 : 0;
-      const targetNode = this.sliderTargets[moveIdx];
-      if (targetNode) {
-        this.tryMove(targetNode);
-      }
-      this.hideMoveSlider();
     });
+  }
 
-    if (btnCancelMove) btnCancelMove.addEventListener('click', () => {
-      this.hideMoveSlider();
+  // ────────────────────────────────────────────
+  //  GUTI
+  // ────────────────────────────────────────────
+
+  addGuti(nodeKey: NodeKey, owner: Player, color: number): void {
+    const guti = new Guti(this, nodeKey, owner, color, this.gutiShape);
+    guti.sprite.setDepth(5);
+    this.occupied[nodeKey] = guti;
+    this.gutis.push(guti);
+
+    guti.sprite.on('pointerdown', () => {
+      if (this.gameEnded || this.settingsOpen) return;
+      if (guti.owner !== this.currentTurn) return;
+      this.clearHints();
+      this.selectedGuti = guti;
+      this.highlightSelection(guti);
+      this.showValidMoves(guti);
+      this.showMoveSliderFor(guti);
     });
-
-    // store DOM refs for updates
-    (this as any)._ui = { uiTurn, uiRed, uiBlue };
-    // initial DOM update
-    if (uiTurn) uiTurn.innerText = `Turn: ${this.currentTurn}`;
-    if (uiRed) uiRed.innerText = `Red Captured: ${this.redCaptured}`;
-    if (uiBlue) uiBlue.innerText = `Blue Captured: ${this.blueCaptured}`;
-    this.updateSoundButtonText();
   }
 
   applyShapeToAll(shape: 'circle' | 'square' | 'bar'): void {
-    // Replace all guti sprites with the new shape while preserving owner/nodeKey/color
     const oldGutis = [...this.gutis];
     const newGutis: Guti[] = [];
     const newOccupied: Partial<Record<NodeKey, Guti>> = {};
 
     oldGutis.forEach(old => {
-      const nodeKey = old.nodeKey;
-      const owner = old.owner;
-      const color = (old as any).color ?? (owner === 'RED' ? this.themeManager.getCurrentTheme().redColor : this.themeManager.getCurrentTheme().blueColor);
-
-      // destroy old sprite
-      try { old.sprite.destroy(); } catch (e) { /* ignore */ }
+      const { nodeKey, owner } = old;
+      const color = (old as any).color ??
+        (owner === 'RED' ? this.themeManager.getCurrentTheme().redColor
+                         : this.themeManager.getCurrentTheme().blueColor);
+      try { old.sprite.destroy(); } catch (_) {}
 
       const ng = new Guti(this, nodeKey, owner, color, shape);
+      ng.sprite.setDepth(5);
       newGutis.push(ng);
       newOccupied[nodeKey] = ng;
 
       ng.sprite.on('pointerdown', () => {
-        if (this.gameEnded) return;
+        if (this.gameEnded || this.settingsOpen) return;
         if (ng.owner !== this.currentTurn) return;
         this.clearHints();
         this.selectedGuti = ng;
         this.highlightSelection(ng);
         this.showValidMoves(ng);
+        this.showMoveSliderFor(ng);
       });
     });
 
     this.gutis = newGutis;
     this.occupied = newOccupied;
-
-    // If a piece was selected, re-select the corresponding new guti
     if (this.selectedGuti) {
-      const node = this.selectedGuti.nodeKey;
-      this.selectedGuti = this.occupied[node] || null;
+      this.selectedGuti = this.occupied[this.selectedGuti.nodeKey] ?? null;
     }
   }
 
-  createButton(x: number, y: number, width: number, height: number, text: string, onClick: () => void): void {
-    const button = this.add.rectangle(x + width / 2, y + height / 2, width, height, 0x888888);
-    button.setInteractive();
-    button.on('pointerdown', onClick);
-
-    const buttonText = this.add.text(x + width / 2, y + height / 2, text, {
-      fontSize: '12px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-  }
-
-  changeTheme(): void {
-    const newTheme = this.themeManager.nextTheme();
-    this.soundManager.playMoveSound();
-
-    // Update background
-    this.cameras.main.setBackgroundColor(newTheme.backgroundColor);
-
-    // Update all elements
-    const btnTheme = document.getElementById('btn-theme');
-    if (btnTheme) btnTheme.innerText = `THEME: ${newTheme.name}`;
-    this.refreshTheme(newTheme);
-  }
-
-  refreshTheme(theme: any): void {
-    // Restart scene with new theme
-    this.scene.restart();
-  }
-
-  toggleSound(): void {
-    this.soundManager.toggleSound();
-    this.updateSoundButtonText();
-  }
-
-  updateSoundButtonText(): void {
-    const status = this.soundManager.isSoundEnabled() ? 'ON' : 'OFF';
-    const btn = document.getElementById('btn-sound');
-    if (btn) btn.innerText = `SOUND: ${status}`;
-  }
-
-  showStats(): void {
-    const stats = this.statsManager.getStats();
-    const statsText = `STATS
-Red Wins: ${stats.redWins}
-Blue Wins: ${stats.blueWins}
-Total Games: ${stats.totalGames}
-Avg Moves: ${stats.averageMoves}`;
-
-    const displayText = this.add.text(300, 200, statsText, {
-      fontSize: '16px',
-      color: '#000000',
-      align: 'center',
-      backgroundColor: '#ffffff',
-      padding: { x: 20, y: 20 },
-    }).setOrigin(0.5).setDepth(100);
-
-    this.time.delayedCall(3000, () => {
-      displayText.destroy();
-    });
-  }
-
-  undoMove(): void {
-    if (this.moveHistoryManager.getMoveCount() < 1) {
-      return;
-    }
-
-    const lastMove = this.moveHistoryManager.undoLastMove();
-    if (!lastMove) return;
-
-    this.soundManager.playMoveSound();
-
-    // Find the guti that moved
-    const guti = this.occupied[lastMove.to];
-    if (guti) {
-      guti.moveTo(lastMove.from, true);
-      delete this.occupied[lastMove.to];
-      this.occupied[lastMove.from] = guti;
-    }
-
-    // Restore captured piece if any
-    if (lastMove.captured) {
-      const capturedGuti = new Guti(
-        this,
-        lastMove.captured,
-        lastMove.player === 'RED' ? 'BLUE' : 'RED',
-        lastMove.player === 'RED' ? 0x0000ff : 0xff0000,
-        this.gutiShape
-      );
-      this.occupied[lastMove.captured] = capturedGuti;
-      this.gutis.push(capturedGuti);
-    }
-
-    this.moveCount--;
-    this.currentTurn = lastMove.player;
-    this.updateTurnDisplay();
-  }
-
-  /* ---------------- GUTI ---------------- */
-
-  addGuti(nodeKey: NodeKey, owner: Player, color: number): void {
-    const guti = new Guti(this, nodeKey, owner, color, this.gutiShape);
-
-    this.occupied[nodeKey] = guti;
-    this.gutis.push(guti);
-
-    guti.sprite.on('pointerdown', () => {
-      if (this.gameEnded) return;
-      if (guti.owner !== this.currentTurn) return;
-
-      this.clearHints();
-      this.selectedGuti = guti;
-      this.highlightSelection(guti);
-      this.showValidMoves(guti);
-      // Show mobile slider targets
-      this.showMoveSliderFor(guti);
-    });
-  }
-
-  /* ---------------- MOVEMENT ---------------- */
+  // ────────────────────────────────────────────
+  //  MOVEMENT
+  // ────────────────────────────────────────────
 
   tryMove(target: NodeKey): void {
-    if (this.gameEnded) return;
-    if (!this.selectedGuti) return;
-
+    if (this.gameEnded || !this.selectedGuti) return;
     const from = this.selectedGuti.nodeKey;
 
     // Normal move
-    if (
-      NODES[from].links.includes(target) &&
-      !this.occupied[target]
-    ) {
+    if (NODES[from].links.includes(target) && !this.occupied[target]) {
       this.executeMove(from, target);
       return;
     }
@@ -348,37 +187,54 @@ Avg Moves: ${stats.averageMoves}`;
     delete this.occupied[from];
     this.occupied[to] = this.selectedGuti!;
 
-    // Record move
     const jumped = this.getJumpedNode(from, to);
     this.moveHistoryManager.recordMove(this.currentTurn, from, to, jumped);
-
     this.soundManager.playSlideSound();
     this.clearHints();
     this.clearSelection();
-
+    this.hideMoveSlider();
     this.moveCount++;
 
-    if (this.moveCount > 3) {
-      this.checkWin();
-    }
-
+    if (this.moveCount > 3) this.checkWin();
     this.switchTurn();
   }
 
-  /* ---------------- CAPTURE ---------------- */
+  getAvailableTargets(guti: Guti): NodeKey[] {
+    const from = guti.nodeKey;
+    const targets: NodeKey[] = [];
+
+    NODES[from].links.forEach(n => {
+      if (!this.occupied[n]) targets.push(n);
+    });
+
+    Object.keys(NODES).forEach(t => {
+      const target = t as NodeKey;
+      const jumped = this.getJumpedNode(from, target);
+      if (
+        jumped &&
+        this.occupied[jumped] &&
+        this.occupied[jumped]?.owner !== guti.owner &&
+        !this.occupied[target] &&
+        !targets.includes(target)
+      ) {
+        targets.push(target);
+      }
+    });
+
+    return targets;
+  }
+
+  // ────────────────────────────────────────────
+  //  CAPTURE
+  // ────────────────────────────────────────────
 
   getJumpedNode(from: NodeKey, to: NodeKey): NodeKey | null {
-    const fx = NODES[from].x;
-    const fy = NODES[from].y;
-    const tx = NODES[to].x;
-    const ty = NODES[to].y;
+    const fx = NODES[from].x, fy = NODES[from].y;
+    const tx = NODES[to].x, ty = NODES[to].y;
 
     for (const key in NODES) {
       const n = NODES[key as NodeKey];
-      if (
-        n.x === (fx + tx) / 2 &&
-        n.y === (fy + ty) / 2
-      ) {
+      if (n.x === (fx + tx) / 2 && n.y === (fy + ty) / 2) {
         return key as NodeKey;
       }
     }
@@ -389,11 +245,8 @@ Avg Moves: ${stats.averageMoves}`;
     const guti = this.occupied[node];
     if (!guti) return;
 
-    if (guti.owner === 'RED') {
-      this.blueCaptured++;
-    } else {
-      this.redCaptured++;
-    }
+    if (guti.owner === 'RED') this.blueCaptured++;
+    else this.redCaptured++;
 
     guti.captureAnimation(() => {
       guti.sprite.destroy();
@@ -404,43 +257,18 @@ Avg Moves: ${stats.averageMoves}`;
     this.updateScoreDisplay();
   }
 
-  /* ---------------- HIGHLIGHT ---------------- */
+  // ────────────────────────────────────────────
+  //  HINTS
+  // ────────────────────────────────────────────
 
   showValidMoves(guti: Guti): void {
     const from = guti.nodeKey;
+    const theme = this.themeManager.getCurrentTheme();
 
     NODES[from].links.forEach(n => {
-      if (!this.occupied[n]) {
-        this.drawHint(n, this.themeManager.getCurrentTheme().hintNormalColor);
-      }
+      if (!this.occupied[n]) this.drawHint(n, theme.hintNormalColor);
     });
 
-    // Capture hints
-    Object.keys(NODES).forEach(t => {
-      const target = t as NodeKey;
-      const jumped = this.getJumpedNode(from, target);
-
-      if (
-        jumped &&
-        this.occupied[jumped] &&
-        this.occupied[jumped]?.owner !== guti.owner &&
-        !this.occupied[target]
-      ) {
-        this.drawHint(target, this.themeManager.getCurrentTheme().hintCaptureColor);
-      }
-    });
-  }
-
-  getAvailableTargets(guti: Guti): NodeKey[] {
-    const from = guti.nodeKey;
-    const targets: NodeKey[] = [];
-
-    // normal moves
-    NODES[from].links.forEach(n => {
-      if (!this.occupied[n]) targets.push(n);
-    });
-
-    // capture targets
     Object.keys(NODES).forEach(t => {
       const target = t as NodeKey;
       const jumped = this.getJumpedNode(from, target);
@@ -450,48 +278,14 @@ Avg Moves: ${stats.averageMoves}`;
         this.occupied[jumped]?.owner !== guti.owner &&
         !this.occupied[target]
       ) {
-        // avoid duplicates
-        if (!targets.includes(target)) targets.push(target);
+        this.drawHint(target, theme.hintCaptureColor);
       }
     });
-
-    return targets;
-  }
-
-  showMoveSliderFor(guti: Guti): void {
-    const sliderDiv = document.getElementById('ui-slider');
-    const moveSlider = document.getElementById('move-slider') as HTMLInputElement | null;
-    const sliderLabel = document.getElementById('slider-label');
-    if (!sliderDiv || !moveSlider || !sliderLabel) return;
-
-    const targets = this.getAvailableTargets(guti);
-    this.sliderTargets = targets;
-    if (targets.length === 0) {
-      sliderDiv.style.display = 'none';
-      return;
-    }
-
-    moveSlider.min = '0';
-    moveSlider.max = `${Math.max(0, targets.length - 1)}`;
-    moveSlider.value = '0';
-    sliderLabel.innerText = `Move to ${targets[0]}`;
-    sliderDiv.style.display = 'block';
-
-    // highlight first option
-    this.clearHints();
-    this.drawHint(targets[0], this.themeManager.getCurrentTheme().hintNormalColor);
-  }
-
-  hideMoveSlider(): void {
-    const sliderDiv = document.getElementById('ui-slider');
-    if (sliderDiv) sliderDiv.style.display = 'none';
-    this.sliderTargets = [];
-    this.clearHints();
   }
 
   drawHint(node: NodeKey, color: number): void {
     const n = NODES[node];
-    const c = this.add.circle(n.x, n.y, 12, color, 0.4);
+    const c = this.add.circle(n.x, n.y, 12, color, 0.4).setDepth(3);
     this.moveHints.push(c);
   }
 
@@ -500,7 +294,9 @@ Avg Moves: ${stats.averageMoves}`;
     this.moveHints = [];
   }
 
-  /* ---------------- TURN ---------------- */
+  // ────────────────────────────────────────────
+  //  TURN
+  // ────────────────────────────────────────────
 
   switchTurn(): void {
     this.currentTurn = this.currentTurn === 'RED' ? 'BLUE' : 'RED';
@@ -508,89 +304,55 @@ Avg Moves: ${stats.averageMoves}`;
   }
 
   updateTurnDisplay(): void {
-    this.turnText.setText(`Turn: ${this.currentTurn}`);
-    const uiTurn = (this as any)._ui?.uiTurn as HTMLElement | null;
-    if (uiTurn) uiTurn.innerText = `Turn: ${this.currentTurn}`;
+    const icon = this.currentTurn === 'RED' ? '🔴' : '🔵';
+    this.turnText.setText(`${icon} ${this.currentTurn}'s Turn`);
+    this.updateBottomHint();
   }
 
   updateScoreDisplay(): void {
-    this.redScoreText && this.redScoreText.setText && this.redScoreText.setText(`Red Captured: ${this.blueCaptured}`);
-    this.blueScoreText && this.blueScoreText.setText && this.blueScoreText.setText(`Blue Captured: ${this.redCaptured}`);
-    const uiRed = (this as any)._ui?.uiRed as HTMLElement | null;
-    const uiBlue = (this as any)._ui?.uiBlue as HTMLElement | null;
-    if (uiRed) uiRed.innerText = `Red Captured: ${this.blueCaptured}`;
-    if (uiBlue) uiBlue.innerText = `Blue Captured: ${this.redCaptured}`;
+    // score display is integrated into turn text area — no separate score text needed
   }
 
-  /* ---------------- WIN CHECK ---------------- */
+  // ────────────────────────────────────────────
+  //  WIN CHECK
+  // ────────────────────────────────────────────
 
   checkWin(): void {
     for (const line of WIN_LINES) {
       const owners = line.map(n => this.occupied[n]?.owner);
-      if (owners.every(o => o === 'RED')) {
-        this.gameOver('RED');
-        return;
-      }
-      if (owners.every(o => o === 'BLUE')) {
-        this.gameOver('BLUE');
-        return;
-      }
+      if (owners.every(o => o === 'RED')) { this.gameOver('RED'); return; }
+      if (owners.every(o => o === 'BLUE')) { this.gameOver('BLUE'); return; }
     }
   }
 
   gameOver(winner: Player): void {
+    this.gameEnded = true;
     this.soundManager.playYooSound();
     this.statsManager.recordWin(winner, this.moveCount);
 
-    const theme = this.themeManager.getCurrentTheme();
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.75).setDepth(230);
+    const modal = this.add.rectangle(300, 300, 380, 280, 0xffffff).setDepth(231);
 
-    // Semi-transparent overlay
-    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.7);
-    overlay.setDepth(90);
-
-    // Modal background
-    const modal = this.add.rectangle(300, 300, 400, 300, 0xffffff);
-    modal.setDepth(95);
-
-    // Crown emoji (simple crown) and Winner text
-    this.add.text(300, 220, '👑', { fontSize: '40px' }).setOrigin(0.5).setDepth(100);
-    this.add.text(300, 250, `${winner} WINS!`, {
-      fontSize: '40px',
+    this.add.text(300, 220, '👑', { fontSize: '40px' }).setOrigin(0.5).setDepth(232);
+    this.add.text(300, 260, `${winner} WINS!`, {
+      fontSize: '36px',
       color: winner === 'RED' ? '#ff0000' : '#0000ff',
       fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(100);
+    }).setOrigin(0.5).setDepth(232);
+    this.add.text(300, 295, `Moves: ${this.moveCount}`, {
+      fontSize: '16px', color: '#000',
+    }).setOrigin(0.5).setDepth(232);
 
-    // Congratulatory message
-    this.add.text(300, 285, `অভিনন্দন! ${winner} জয়লাভ করেছে`, {
-      fontSize: '16px',
-      color: '#333333',
-    }).setOrigin(0.5).setDepth(100);
-
-    // Game info
-    this.add.text(300, 310, `Moves: ${this.moveCount}`, {
-      fontSize: '16px',
-      color: '#000000',
-    }).setOrigin(0.5).setDepth(100);
-
-    // Restart button
-    const restartBtn = this.add.rectangle(300, 370, 150, 40, 0x4CAF50);
-    restartBtn.setInteractive();
-    restartBtn.setDepth(100);
-    restartBtn.on('pointerdown', () => {
-      this.scene.restart();
-    });
-
-    this.add.text(300, 370, 'Play Again', {
-      fontSize: '18px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(101);
-
-    // mark ended (do not disable input globally so restart button remains interactive)
-    this.gameEnded = true;
+    const btn = this.add.rectangle(300, 355, 160, 42, 0x4CAF50).setDepth(232).setInteractive();
+    this.add.text(300, 355, 'Play Again', {
+      fontSize: '18px', color: '#fff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(233);
+    btn.on('pointerdown', () => this.scene.restart());
   }
 
-  /* ---------------- UI ---------------- */
+  // ────────────────────────────────────────────
+  //  SELECTION
+  // ────────────────────────────────────────────
 
   highlightSelection(guti: Guti): void {
     this.gutis.forEach(g => g.sprite.setStrokeStyle());
@@ -600,5 +362,357 @@ Avg Moves: ${stats.averageMoves}`;
   clearSelection(): void {
     this.selectedGuti = null;
     this.gutis.forEach(g => g.sprite.setStrokeStyle());
+  }
+
+  // ────────────────────────────────────────────
+  //  TOP BAR  —  Turn indicator
+  // ────────────────────────────────────────────
+
+  private createTopBar(_theme: any): void {
+    const bar = this.add.rectangle(300, 18, 596, 30, 0x000000, 0.15).setDepth(6);
+    bar.setStrokeStyle(1, 0x000000, 0.1);
+    this.turnText = this.add.text(300, 18, `🔴 RED's Turn`, {
+      fontSize: '14px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(7);
+  }
+
+  // ────────────────────────────────────────────
+  //  GEAR BUTTON  —  top-right corner
+  // ────────────────────────────────────────────
+
+  private createGearButton(): void {
+    const bg = this.add.rectangle(575, 18, 30, 30, 0x333333, 0.8)
+      .setDepth(8).setInteractive({ useHandCursor: true });
+
+    this.gearText = this.add.text(575, 18, '⚙', {
+      fontSize: '16px', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(9);
+
+    bg.on('pointerdown', () => this.openSettings());
+    bg.on('pointerover', () => bg.setFillStyle(0x555555, 1));
+    bg.on('pointerout', () => bg.setFillStyle(0x333333, 0.8));
+  }
+
+  // ────────────────────────────────────────────
+  //  BOTTOM BAR  —  Shape info + hint
+  // ────────────────────────────────────────────
+
+  private createBottomBar(_theme: any): void {
+    const bar = this.add.rectangle(300, 582, 596, 30, 0x000000, 0.15).setDepth(6);
+    bar.setStrokeStyle(1, 0x000000, 0.1);
+
+    (this as any)._bottomShapeLabel = this.add.text(20, 582, this.getShapeLabel(), {
+      fontSize: '12px', color: '#cccccc',
+    }).setOrigin(0, 0.5).setDepth(7);
+
+    (this as any)._bottomHint = this.add.text(580, 582, 'Select a guti', {
+      fontSize: '12px', color: '#aaaaaa',
+    }).setOrigin(1, 0.5).setDepth(7);
+  }
+
+  private getShapeLabel(): string {
+    const icons: Record<string, string> = { circle: '●', square: '■', bar: '│' };
+    return `Shape: ${icons[this.gutiShape]}`;
+  }
+
+  private updateBottomHint(): void {
+    const el = (this as any)._bottomHint as Phaser.GameObjects.Text | undefined;
+    if (!el) return;
+    if (this.gameEnded) { el.setText('Game Over'); return; }
+    if (this.selectedGuti) {
+      const targets = this.getAvailableTargets(this.selectedGuti);
+      el.setText(targets.length > 0 ? `${targets.length} move(s) available` : 'No moves — select another');
+    } else {
+      el.setText(`Tap a ${this.currentTurn} guti`);
+    }
+  }
+
+  // ────────────────────────────────────────────
+  //  SETTINGS PANEL
+  // ────────────────────────────────────────────
+
+  private createSettingsPanel(theme: any): void {
+    this.settingsPanel = this.add.group();
+
+    // Dark overlay — click to close
+    this.darkOverlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.65)
+      .setDepth(200).setInteractive();
+    this.darkOverlay.on('pointerdown', () => this.closeSettings());
+    this.settingsPanel.add(this.darkOverlay);
+
+    // Panel box
+    const panel = this.add.rectangle(300, 300, 300, 380, 0xffffff).setDepth(201);
+    panel.setStrokeStyle(2, 0x333333);
+    this.settingsPanel.add(panel);
+
+    // Title
+    this.settingsPanel.add(
+      this.add.text(300, 130, '⚙ Settings', {
+        fontSize: '18px', color: '#333', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(202)
+    );
+
+    // Close X
+    const closeBg = this.add.rectangle(435, 120, 26, 26, 0xff4444).setDepth(202)
+      .setInteractive({ useHandCursor: true });
+    closeBg.on('pointerdown', () => this.closeSettings());
+    closeBg.on('pointerover', () => closeBg.setFillStyle(0xff6666));
+    closeBg.on('pointerout', () => closeBg.setFillStyle(0xff4444));
+    this.settingsPanel.add(closeBg);
+    this.settingsPanel.add(
+      this.add.text(435, 120, '✕', { fontSize: '14px', color: '#fff' })
+        .setOrigin(0.5).setDepth(203)
+    );
+
+    // ── Theme Button ──
+    this.makePanelBtn(165, 170, `THEME: ${theme.name}`, 0x4CAF50, (txt) => {
+      const t = this.themeManager.nextTheme();
+      this.soundManager.playMoveSound();
+      txt.setText(`THEME: ${t.name}`);
+      this.cameras.main.setBackgroundColor(t.backgroundColor);
+      this.scene.restart();
+    });
+
+    // ── Sound Button ──
+    this.makePanelBtn(165, 215, `SOUND: ${this.soundManager.isSoundEnabled() ? 'ON' : 'OFF'}`, 0x2196F3, (txt) => {
+      this.soundManager.toggleSound();
+      txt.setText(`SOUND: ${this.soundManager.isSoundEnabled() ? 'ON' : 'OFF'}`);
+    });
+
+    // ── Stats Button ──
+    this.makePanelBtn(165, 260, 'STATS', 0x9C27B0, () => {
+      this.closeSettings();
+      this.showStats();
+    });
+
+    // ── Undo Button ──
+    this.makePanelBtn(165, 305, 'UNDO', 0xFF9800, () => {
+      this.closeSettings();
+      this.undoMove();
+    });
+
+    // ── Shape Cycle Button ──
+    const shapeNames: Record<string, string> = { circle: 'Circle', square: 'Square', bar: 'Stick' };
+    const shapeOrder: Array<'circle' | 'square' | 'bar'> = ['circle', 'square', 'bar'];
+    this.makePanelBtn(165, 350, `SHAPE: ${shapeNames[this.gutiShape]}`, 0x607D8B, (txt) => {
+      const idx = (shapeOrder.indexOf(this.gutiShape) + 1) % shapeOrder.length;
+      this.gutiShape = shapeOrder[idx];
+      this.applyShapeToAll(this.gutiShape);
+      txt.setText(`SHAPE: ${shapeNames[this.gutiShape]}`);
+      // Update bottom bar shape label
+      const bottomLabel = (this as any)._bottomShapeLabel as Phaser.GameObjects.Text | undefined;
+      if (bottomLabel) bottomLabel.setText(this.getShapeLabel());
+    });
+
+    // ── BG Image Upload Button ──
+    this.makePanelBtn(165, 395, 'BG IMAGE', 0x795548, () => {
+      document.getElementById('bg-image-input')?.click();
+    });
+
+    // ── Reset BG Button ──
+    this.makePanelBtn(165, 440, 'RESET BG', 0x455A64, () => {
+      this.resetBackgroundImage();
+    });
+
+    // Hide by default
+    this.settingsPanel.setVisible(false);
+  }
+
+  private makePanelBtn(
+    x: number, y: number, label: string, color: number,
+    onClick: (txt: Phaser.GameObjects.Text) => void
+  ): void {
+    const w = 200, h = 32;
+    const bg = this.add.rectangle(x, y, w, h, color).setDepth(202)
+      .setInteractive({ useHandCursor: true });
+    const txt = this.add.text(x, y, label, {
+      fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(203);
+
+    bg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event.stopPropagation();
+      onClick(txt);
+    });
+    bg.on('pointerover', () => bg.setFillStyle(color, 0.85));
+    bg.on('pointerout', () => bg.setFillStyle(color, 1));
+
+    this.settingsPanel.addMultiple([bg, txt]);
+  }
+
+  openSettings(): void {
+    this.settingsOpen = true;
+    this.settingsPanel.setVisible(true);
+    this.updateBottomHint();
+  }
+
+  closeSettings(): void {
+    this.settingsOpen = false;
+    this.settingsPanel.setVisible(false);
+    this.updateBottomHint();
+  }
+
+  // ────────────────────────────────────────────
+  //  SETTINGS ACTIONS
+  // ────────────────────────────────────────────
+
+  showStats(): void {
+    const stats = this.statsManager.getStats();
+    const lines = [
+      `Red Wins: ${stats.redWins}`,
+      `Blue Wins: ${stats.blueWins}`,
+      `Total Games: ${stats.totalGames}`,
+      `Avg Moves: ${stats.averageMoves}`,
+    ];
+
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.6).setDepth(220)
+      .setInteractive();
+    const box = this.add.rectangle(300, 300, 260, 200, 0xffffff).setDepth(221);
+    const title = this.add.text(300, 220, '📊 Stats', {
+      fontSize: '16px', fontStyle: 'bold', color: '#333',
+    }).setOrigin(0.5).setDepth(222);
+    const body = this.add.text(300, 265, lines.join('\n'), {
+      fontSize: '14px', color: '#333', align: 'center', lineSpacing: 6,
+    }).setOrigin(0.5).setDepth(222);
+
+    const dismiss = [overlay, box, title, body];
+    overlay.on('pointerdown', () => dismiss.forEach(o => o.destroy()));
+
+    this.time.delayedCall(4000, () => dismiss.forEach(o => { try { o.destroy(); } catch (_) {} }));
+  }
+
+  undoMove(): void {
+    if (this.moveHistoryManager.getMoveCount() < 1) return;
+
+    const last = this.moveHistoryManager.undoLastMove();
+    if (!last) return;
+
+    this.soundManager.playMoveSound();
+
+    // Move guti back
+    const guti = this.occupied[last.to];
+    if (guti) {
+      guti.moveTo(last.from, true);
+      delete this.occupied[last.to];
+      this.occupied[last.from] = guti;
+    }
+
+    // Restore captured piece
+    if (last.captured) {
+      const capturedOwner: Player = last.player === 'RED' ? 'BLUE' : 'RED';
+      const capturedColor = capturedOwner === 'RED'
+        ? this.themeManager.getCurrentTheme().redColor
+        : this.themeManager.getCurrentTheme().blueColor;
+      const restored = new Guti(this, last.captured, capturedOwner, capturedColor, this.gutiShape);
+      restored.sprite.setDepth(5);
+      this.occupied[last.captured] = restored;
+      this.gutis.push(restored);
+
+      // Update capture counts
+      if (capturedOwner === 'RED') this.redCaptured--;
+      else this.blueCaptured--;
+    }
+
+    this.moveCount--;
+    this.currentTurn = last.player;
+    this.updateTurnDisplay();
+    this.updateBottomHint();
+  }
+
+  // ────────────────────────────────────────────
+  //  BACKGROUND IMAGE
+  // ────────────────────────────────────────────
+
+  uploadBackgroundImage(file: File): void {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (!dataUrl) return;
+
+      // Remove old BG image
+      this.resetBackgroundImage();
+
+      // Add new BG image behind everything
+      const texKey = 'custom-bg-' + Date.now();
+      this.textures.addBase64(texKey, dataUrl);
+
+      this.textures.once('addtexture-' + texKey, () => {
+        this.bgImage = this.add.image(300, 300, texKey)
+          .setDisplaySize(600, 600)
+          .setDepth(0);
+
+        // Re-apply background color as fallback
+        this.cameras.main.setBackgroundColor(
+          this.themeManager.getCurrentTheme().backgroundColor
+        );
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  resetBackgroundImage(): void {
+    if (this.bgImage) {
+      this.bgImage.destroy();
+      this.bgImage = null;
+    }
+  }
+
+  // ────────────────────────────────────────────
+  //  MOVE SLIDER (mobile)
+  // ────────────────────────────────────────────
+
+  showMoveSliderFor(guti: Guti): void {
+    const wrap = document.getElementById('move-slider-wrap');
+    const slider = document.getElementById('move-slider') as HTMLInputElement | null;
+    const label = document.getElementById('slider-label');
+    if (!wrap || !slider || !label) return;
+
+    const targets = this.getAvailableTargets(guti);
+    this.sliderTargets = targets;
+
+    if (targets.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+
+    slider.min = '0';
+    slider.max = `${targets.length - 1}`;
+    slider.value = '0';
+    label.innerText = `Move to ${targets[0]}`;
+    wrap.style.display = 'block';
+
+    this.clearHints();
+    this.drawHint(targets[0], this.themeManager.getCurrentTheme().hintNormalColor);
+  }
+
+  hideMoveSlider(): void {
+    const wrap = document.getElementById('move-slider-wrap');
+    if (wrap) wrap.style.display = 'none';
+    this.sliderTargets = [];
+  }
+
+  // ── Bind slider & buttons (called once) ──
+  bindSliderEvents(): void {
+    const slider = document.getElementById('move-slider') as HTMLInputElement | null;
+    const label = document.getElementById('slider-label');
+    const btnMove = document.getElementById('btn-move');
+    const btnCancel = document.getElementById('btn-cancel-move');
+
+    slider?.addEventListener('input', () => {
+      const idx = parseInt(slider.value, 10) || 0;
+      const target = this.sliderTargets[idx];
+      if (label && target) label.innerText = `Move to ${target}`;
+      this.clearHints();
+      if (target) this.drawHint(target, this.themeManager.getCurrentTheme().hintNormalColor);
+    });
+
+    btnMove?.addEventListener('click', () => {
+      if (!this.selectedGuti) return;
+      const idx = parseInt(slider?.value ?? '0', 10) || 0;
+      const target = this.sliderTargets[idx];
+      if (target) this.tryMove(target);
+      this.hideMoveSlider();
+    });
+
+    btnCancel?.addEventListener('click', () => this.hideMoveSlider());
   }
 }
