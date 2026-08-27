@@ -81,21 +81,22 @@ Opens modal grid (depth 240+) over the settings panel. **5 procedural presets** 
 - Overlay tap / ✕ closes the picker. Tracks all objects in `bgPickerObjects[]` for clean destroy.
 
 ## Default Backgrounds (BackgroundManager.ts)
-5 procedural textures generated at scene start via Phaser Graphics → `generateTexture()`:
+5 hand-crafted illustrative backgrounds generated to textures at runtime in `create()` via `ensureGenerated()` (Phaser Graphics → `generateTexture()`). No external image files. Themed around traditional Guti game mats:
 | id | label | icon | appearance |
 |----|-------|------|-----------|
-| green | Grass | 🌿 | green fill + darker stripes |
-| wood | Wood | 🪵 | brown fill + vertical planks |
-| sky | Sky | ☁️ | blue + white clouds + green ground |
-| night | Night | 🌙 | dark + 120 stars + crescent moon |
-| sand | Sand | 🏖️ | tan fill + wavy lines + sea strip |
-Each stored as `defaultTextureKeys[id]` → texture keys `bg-green`, `bg-wood`, etc.
+| teakwood | Teak Wood | 🪵 | wood fill + gradient bands + curved grain + carved corners |
+| velvet | Velvet Red | 🔴 | rich red playing cloth + gold border frame + corner dots |
+| greenmat | Green Mat | 🌿 | green jute mat + woven crisscross + leaf sprinkles |
+| night | Moonlit Night | 🌙 | indigo sky + stars + crescent moon + distant hills |
+| marble  | Marble    | 🪨 | light marble + veins + soft patches + border |
+Each stored in `defaultTextureKeys[id]` → texture keys `bg-teakwood`, `bg-velvet`, `bg-greenmat`, `bg-night`, `bg-marble`.
 
 ## Background Image Feature
-- **5 presets**: procedural textures (see above), chosen from grid.
+- **5 samples**: hand-crafted illustrative textures chosen from the picker grid.
 - **Upload**: gear → 🎨 BACKGROUND → 📁 Upload from Device → hidden `<input type="file" id="bg-image-input">`.
 - File read as base64 DataURL → `textures.addBase64()` → Phaser Image at depth 0 (behind everything).
-- **Reset**: Uploading a new BG or picking a preset destroys the current `bgImage` first.
+- **IMPORTANT**: `addBase64` loads async — listen for the `'addtexture'` ADD event (NOT `'addtexture-<key>'`) plus a 50ms `textures.exists()` polling fallback.
+- Uploading a new BG or picking a preset destroys the current `bgImage` first.
 - Persists until scene restart or replaced.
 
 ## File Structure
@@ -155,7 +156,7 @@ bgPickerObjects: GameObject[] - All objects in the picker modal (cleanup on clos
 
 ## Depth Layers
 ```
-0    - Custom background image
+-10  - Background image (below board lines, which are default depth 0)
 1    - Board nodes (dots)
 3    - Move hint circles
 5    - Guti sprites

@@ -21,6 +21,8 @@ export class GameScene extends Phaser.Scene {
   gameEnded = false;
   gutiShape: 'circle' | 'square' | 'bar' = 'circle';
   sliderTargets: NodeKey[] = [];
+  redCaptured = 0;
+  blueCaptured = 0;
 
   // ── Managers ──
   soundManager!: SoundManager;
@@ -52,6 +54,7 @@ export class GameScene extends Phaser.Scene {
     this.statsManager = new StatsManager();
     this.moveHistoryManager = new MoveHistoryManager();
     this.backgroundManager = new BackgroundManager(this);
+    this.backgroundManager.ensureGenerated();
 
     const theme = this.themeManager.getCurrentTheme();
     this.cameras.main.setBackgroundColor(theme.backgroundColor);
@@ -194,7 +197,7 @@ export class GameScene extends Phaser.Scene {
     this.occupied[to] = this.selectedGuti!;
 
     const jumped = this.getJumpedNode(from, to);
-    this.moveHistoryManager.recordMove(this.currentTurn, from, to, jumped);
+    this.moveHistoryManager.recordMove(this.currentTurn, from, to, jumped ?? undefined);
     this.soundManager.playSlideSound();
     this.clearHints();
     this.clearSelection();
@@ -561,14 +564,18 @@ export class GameScene extends Phaser.Scene {
       const texKey = this.backgroundManager.getDefaultTextureKey(opt.id);
       if (!texKey) return;
 
-      const thumb = this.add.image(x, y, texKey)
-        .setDisplaySize(60, 60)
-        .setDepth(242)
-        .setInteractive({ useHandCursor: true })
-        .setStrokeStyle(2, 0xcccccc);
+      // border frame behind thumb
+      const frame = this.add.rectangle(x, y, 66, 66, 0xffffff)
+        .setStrokeStyle(2, 0xcccccc).setDepth(241);
+      this.bgPickerObjects.push(frame);
 
-      thumb.on('pointerover', () => thumb.setStrokeStyle(3, 0x4CAF50));
-      thumb.on('pointerout', () => thumb.setStrokeStyle(2, 0xcccccc));
+      const thumb = this.add.image(x, y, texKey)
+        .setDisplaySize(58, 58)
+        .setDepth(242)
+        .setInteractive({ useHandCursor: true });
+
+      thumb.on('pointerover', () => { frame.setStrokeStyle(3, 0x4CAF50); });
+      thumb.on('pointerout', () => { frame.setStrokeStyle(2, 0xcccccc); });
       thumb.on('pointerdown', (p: Phaser.Input.Pointer) => {
         p.event.stopPropagation();
         this.setDefaultBackground(opt.id);
@@ -621,7 +628,7 @@ export class GameScene extends Phaser.Scene {
     this.resetBackgroundImage();
     this.bgImage = this.add.image(300, 300, texKey)
       .setDisplaySize(600, 600)
-      .setDepth(0);
+      .setDepth(-10);
   }
 
   private makePanelBtn(
@@ -737,19 +744,33 @@ export class GameScene extends Phaser.Scene {
       // Remove old BG image
       this.resetBackgroundImage();
 
-      // Add new BG image behind everything
       const texKey = 'custom-bg-' + Date.now();
       this.textures.addBase64(texKey, dataUrl);
 
-      this.textures.once('addtexture-' + texKey, () => {
+      const showBg = () => {
         this.bgImage = this.add.image(300, 300, texKey)
           .setDisplaySize(600, 600)
-          .setDepth(0);
-
-        // Re-apply background color as fallback
+          .setDepth(-10);
         this.cameras.main.setBackgroundColor(
           this.themeManager.getCurrentTheme().backgroundColor
         );
+      };
+
+      // addBase64 loads async — wait for the ADD texture event, with a polling fallback
+      const onAdd = (key: string) => {
+        if (key === texKey) {
+          this.textures.off('addtexture', onAdd);
+          showBg();
+        }
+      };
+      this.textures.on('addtexture', onAdd);
+
+      // Fallback: if texture already exists within a tick, show immediately
+      this.time.delayedCall(50, () => {
+        if (this.textures.exists(texKey)) {
+          this.textures.off('addtexture', onAdd);
+          showBg();
+        }
       });
     };
     reader.readAsDataURL(file);
