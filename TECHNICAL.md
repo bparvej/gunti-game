@@ -4,13 +4,14 @@
 Bengali traditional 2-player board game. Phaser 3 + TypeScript + Vite. 600x600 canvas. **All UI is inside the canvas** (no external DOM overlay). Only a mobile move slider remains as DOM.
 
 ## Game Rules
-- **Players**: RED and BLUE. Each has **3 gutis (pieces)**.
+- **Players**: RED and BLUE (colors user-selectable). Each has **3 gutis (pieces)**.
 - **Board**: 9 nodes arranged as a 3x3 grid with center, corners, and edge-midpoints. Nodes connected by lines (horizontal, vertical, diagonal, center-to-all).
 - **Turn**: RED goes first. Players alternate.
-- **Move**: Select own guti -> click adjacent connected empty node. One step per turn.
-- **Capture (jump)**: If opponent's guti sits on a node exactly between your guti and an empty node beyond, you can jump over it to capture. Capture = remove opponent piece.
+- **Move**: Select own guti -> click an **adjacent connected** node. **One step only** — no jumps across two nodes.
+- **Capture (eat)**: If your guti is on a node **adjacent** to an opponent's guti, tapping the opponent's node **eats/captures** it — the opponent piece is removed and your guti moves into that node (this is still one step; no jump-over-onto-empty needed).
+- **No overlap**: A guti can never land on a node already occupied by your own piece. Own-occupied nodes are blocked (do nothing).
 - **Win**: First player to align all 3 gutis on any of the 8 win lines (3 rows, 3 cols, 2 diagonals) wins. Checked after move 3+.
-- **Capture removal**: Opponent's captured guti is destroyed with animation.
+- **Capture removal**: Opponent's captured guti is removed from board state immediately, then destroyed with a fade animation.
 
 ## Board Topology (Nodes.ts)
 ```
@@ -33,7 +34,12 @@ Diags:   [TL,C,BR], [TR,C,BL]
 ```
 
 ## Capture Mechanic
-`getJumpedNode(from, to)`: finds node at midpoint `(from+to)/2`. If midpoint exists in NODES and has opponent piece and destination is empty -> capture.
+On `tryMove(target)`: target must be in `NODES[from].links` (**one step**). Inspect `occupied[target]`:
+- empty → normal move
+- opponent → `capture(target)` removes opponent (state synced immediately: gutis filtered + `occupied[target]` deleted), then `executeMove(from, target, capturedNode)` moves the selected guti in and records the captured node for undo.
+- own piece → blocked (no overlap).
+
+The previous jump-over-midpoint (`getJumpedNode`) mechanic was removed; capture is now eat-adjacent. `capture()` no longer mutates state inside the async tween callback (that caused a bug where the capturing guti was erased) — it mutates synchronously; only the sprite destruction is async.
 
 ## Canvas UI Layout (600x600)
 ```
@@ -51,48 +57,64 @@ Diags:   [TL,C,BR], [TR,C,BL]
 ```
 
 ### Settings Panel (opens on gear click)
-Semi-transparent dark overlay (depth 200) + white panel (depth 201) centered at (300,300).
+Semi-transparent dark overlay (depth 200) + white panel (depth 201) centered at (300,305) 300x430.
 ```
 ┌──── ⚙ Settings ─── [✕] ────┐
-│                              │
-│   [THEME: Classic Light]     │
-│   [SOUND: ON]                │
-│   [STATS]                    │
-│   [UNDO]                     │
-│   [SHAPE: Circle]            │
-│   [🎨 BACKGROUND]  ← opens  │
-│        preset grid           │
+│  [THEME: Classic Light]      │
+│  [SOUND: ON]                 │
+│  [STATS]                     │
+│  [UNDO]                      │
+│  [SHAPE: Circle]             │
+│  [🎨 GUTI COLOR]  ← color    │
+│       pair picker            │
+│  [🎨 BACKGROUND] ← opens     │
+│       preset grid            │
 └──────────────────────────────┘
 ```
 Click dark overlay or ✕ to close. Clicking panel buttons uses `stopPropagation()`.
 
+### Guti Color Pair Picker (🎨 GUTI COLOR button)
+Opens modal grid (depth 260+) over the settings panel. Shows **6 predefined color pairs** as two-dot swatches.
+```
+┌── Choose Guti Colors ───────┐
+│  [● ●]Red vs Blue           │
+│  [● ●]Green vs Orange       │
+│  [● ●]Pink vs Teal          │
+│  [● ●]Yellow vs Purple      │
+│  [● ●]White vs Black        │
+│  [● ●]Brown vs Cyan         │
+└──────────────────────────────┘
+```
+Tapping a pair calls `applyColorPair(index)` — recolors both sides' gutis **in place** (preserves nodeKey/owner), and shows on the current theme's neutral colors. `GameScene.COLOR_PAIRS` static holds the pairs. Objects tracked in `colorPickerObjects[]` for cleanup.
+
 ### Background Picker (🎨 BACKGROUND button)
-Opens modal grid (depth 240+) over the settings panel. **5 procedural presets** as thumbnails + upload option. Fully touch-friendly (large tap targets).
+Opens modal grid (depth 240+) over the settings panel. **6 sample backgrounds** as thumbnails (3x2 grid) + upload option. Fully touch-friendly.
 ```
 ┌── Choose Background ────────┐
-│  [🌿Grass][🪵Wood][☁️Sky]   │
-│  [🌙Night  ][🏖️Sand        ] │
-│  [ ─────────────────── ]    │
+│ [🪵][🔴][🌿]                │
+│ [🌙][🪨][🦖]                │
+│  [ ────────────────── ]     │
 │  [📁 Upload from Device ]   │
 └──────────────────────────────┘
 ```
-- Tapping a preset image sets it as the full-canvas background (depth 0).
+- Tapping a sample image sets it as the full-canvas background (depth -10, behind board).
 - "Upload from Device" triggers hidden `<input type="file">`, read as base64 → Phaser Image.
 - Overlay tap / ✕ closes the picker. Tracks all objects in `bgPickerObjects[]` for clean destroy.
 
 ## Default Backgrounds (BackgroundManager.ts)
-5 hand-crafted illustrative backgrounds generated to textures at runtime in `create()` via `ensureGenerated()` (Phaser Graphics → `generateTexture()`). No external image files. Themed around traditional Guti game mats:
+6 hand-crafted illustrative backgrounds generated to textures at runtime in `create()` via `ensureGenerated()` (Phaser Graphics → `generateTexture()`). No external image files. Themed around traditional Guti game mats:
 | id | label | icon | appearance |
 |----|-------|------|-----------|
-| teakwood | Teak Wood | 🪵 | wood fill + gradient bands + curved grain + carved corners |
-| velvet | Velvet Red | 🔴 | rich red playing cloth + gold border frame + corner dots |
+| teakwood | Teak Wood | 🪵 | wood fill + gradient bands + grain + carved corners |
+| velvet | Velvet Red | 🔴 | rich red playing cloth + gold border + corner dots |
 | greenmat | Green Mat | 🌿 | green jute mat + woven crisscross + leaf sprinkles |
-| night | Moonlit Night | 🌙 | indigo sky + stars + crescent moon + distant hills |
+| night | Moonlit Night | 🌙 | indigo sky + stars + crescent moon + hills |
 | marble  | Marble    | 🪨 | light marble + veins + soft patches + border |
-Each stored in `defaultTextureKeys[id]` → texture keys `bg-teakwood`, `bg-velvet`, `bg-greenmat`, `bg-night`, `bg-marble`.
+| dino    | Funny Dino | 🦖 | cartoon T-Rex on pastel sky + clouds + sun + ground |
+Each stored in `defaultTextureKeys[id]` → texture keys `bg-teakwood`, `bg-velvet`, `bg-greenmat`, `bg-night`, `bg-marble`, `bg-dino`.
 
 ## Background Image Feature
-- **5 samples**: hand-crafted illustrative textures chosen from the picker grid.
+- **6 samples**: hand-crafted illustrative textures chosen from the picker grid.
 - **Upload**: gear → 🎨 BACKGROUND → 📁 Upload from Device → hidden `<input type="file" id="bg-image-input">`.
 - File read as base64 DataURL → `textures.addBase64()` → Phaser Image at depth 0 (behind everything).
 - **IMPORTANT**: `addBase64` loads async — listen for the `'addtexture'` ADD event (NOT `'addtexture-<key>'`) plus a 50ms `textures.exists()` polling fallback.
@@ -104,7 +126,7 @@ Each stored in `defaultTextureKeys[id]` → texture keys `bg-teakwood`, `bg-velv
 src/
   main.ts              - Entry. Creates Phaser.Game with gameConfig.
   config/gameConfig.ts - Phaser config: 600x600, AUTO renderer, FIT scale, GameScene.
-  scenes/GameScene.ts  - Core game logic (~720 lines). All game + in-canvas UI.
+  scenes/GameScene.ts  - Core game logic (~940 lines). All game + in-canvas UI.
   board/
     Board.ts           - Draws board lines (outer square + cross + X diagonals).
     Nodes.ts           - 9-node graph with positions and adjacency links.
@@ -112,7 +134,7 @@ src/
   guti/Guti.ts         - Guti class: sprite (circle/square/bar), nodeKey, owner, moveTo(), captureAnimation().
   managers/
     ThemeManager.ts    - 5 themes (Classic Light, Dark, Ocean Blue, Sunset Gold, Purple Dream). Cycles on button.
-    BackgroundManager.ts - Generates 5 procedural background textures (grass, wood, sky, night, sand).
+    BackgroundManager.ts - Generates 6 sample background textures (teakwood, velvet, greenmat, night, marble, dino).
     SoundManager.ts    - Web Audio API beeps. No audio files. Methods: move, capture, win, slide(whoosh), yoo(celebration).
     StatsManager.ts    - localStorage persistence. Tracks redWins, blueWins, totalGames, averageMoves.
     MoveHistoryManager.ts - Move stack for undo. Records {player, from, to, captured}.
@@ -130,28 +152,32 @@ gutiShape: 'circle' | 'square' | 'bar'
 sliderTargets: NodeKey[]   - Available moves for mobile slider UI
 settingsOpen: boolean      - True when settings panel is visible
 bgSelectionOpen: boolean   - True when background picker grid is visible
-bgImage: Image | null      - Custom/procedural background image (depth 0)
+bgImage: Image | null      - Custom/procedural background image (depth -10)
 bgThumbs: Image[]          - Background picker thumbnails
-bgPickerObjects: GameObject[] - All objects in the picker modal (cleanup on close)
+bgPickerObjects: GameObject[] - All objects in the bg picker modal (cleanup on close)
+colorPickerOpen: boolean   - True when guti color picker is visible
+colorPickerObjects: GameObject[] - All objects in the color picker modal (cleanup on close)
+currentColorPairIndex: number - Index into COLOR_PAIRS (currently applied pair)
 ```
 
 ## Key Methods (GameScene)
 | Method | Purpose |
 |--------|---------|
 | `addGuti(nodeKey, owner, color)` | Places guti, binds click handler (respects settingsOpen) |
-| `tryMove(target)` | Validates normal move or capture, executes |
-| `executeMove(from, to)` | Animates move, records history, switches turn |
-| `capture(node)` | Removes opponent guti with fade animation |
-| `getJumpedNode(from, to)` | Returns midpoint node key for jump detection |
-| `showValidMoves(guti)` | Draws green/orange hint circles on valid targets |
+| `tryMove(target)` | One-step move OR eat-adjacent opponent capture; enforces no-overlap |
+| `executeMove(from, to, captured?)` | Animates move, records history, switches turn |
+| `capture(node)` | Removes opponent guti (state synced immediately) + fade animation |
+| `showValidMoves(guti)` | Draws green (move) / orange (capture) hints on adjacent nodes |
+| `getAvailableTargets(guti)` | Adjacent empty (move) + adjacent opponent (capture) nodes |
 | `checkWin()` | Scans WIN_LINES for all-RED or all-BLUE |
 | `gameOver(winner)` | Overlay modal (depth 230+), records stats, Play Again button |
 | `undoMove()` | Pops last move, restores position + captured piece + capture counts |
 | `applyShapeToAll(shape)` | Destroys all guti sprites, recreates with new shape |
+| `applyColorPair(index)` | Recolors both sides' gutis in place from COLOR_PAIRS[index] |
 | `openSettings()` / `closeSettings()` | Toggle settings panel visibility |
-| `openBackgroundPicker()` / `hideBackgroundPicker()` | Show/close preset grid modal (depth 240+) |
-| `setDefaultBackground(id)` | Sets a procedural preset as background (depth 0) |
-| `uploadBackgroundImage(file)` | FileReader → base64 → Phaser Image at depth 0 |
+| `openBackgroundPicker()` / `hideBackgroundPicker()` | Show/close sample grid modal (depth 240+) |
+| `setDefaultBackground(id)` | Sets a sample background (depth -10) |
+| `uploadBackgroundImage(file)` | FileReader → base64 → Phaser Image at depth -10 |
 | `resetBackgroundImage()` | Destroys bg image |
 
 ## Depth Layers
@@ -168,6 +194,7 @@ bgPickerObjects: GameObject[] - All objects in the picker modal (cleanup on clos
 220-222 - Stats overlay
 230-233 - Game over overlay
 240-243 - Background picker modal
+260-263 - Guti color picker modal
 ```
 
 ## Tech Stack

@@ -23,6 +23,9 @@ export class GameScene extends Phaser.Scene {
   sliderTargets: NodeKey[] = [];
   redCaptured = 0;
   blueCaptured = 0;
+  currentColorPairIndex = 0;
+  colorPickerOpen = false;
+  colorPickerObjects: Phaser.GameObjects.GameObject[] = [];
 
   // ── Managers ──
   soundManager!: SoundManager;
@@ -119,12 +122,24 @@ export class GameScene extends Phaser.Scene {
 
     guti.sprite.on('pointerdown', () => {
       if (this.gameEnded || this.settingsOpen) return;
-      if (guti.owner !== this.currentTurn) return;
-      this.clearHints();
-      this.selectedGuti = guti;
-      this.highlightSelection(guti);
-      this.showValidMoves(guti);
-      this.showMoveSliderFor(guti);
+
+      // Own piece -> select it
+      if (guti.owner === this.currentTurn) {
+        this.clearHints();
+        this.selectedGuti = guti;
+        this.highlightSelection(guti);
+        this.showValidMoves(guti);
+        this.showMoveSliderFor(guti);
+        return;
+      }
+
+      // Opponent piece -> try to capture it if an OWN guti is selected AND is adjacent
+      if (this.selectedGuti && this.selectedGuti.owner === this.currentTurn) {
+        const from = this.selectedGuti.nodeKey;
+        if (NODES[from].links.includes(guti.nodeKey)) {
+          this.tryMove(guti.nodeKey);
+        }
+      }
     });
   }
 
@@ -147,12 +162,24 @@ export class GameScene extends Phaser.Scene {
 
       ng.sprite.on('pointerdown', () => {
         if (this.gameEnded || this.settingsOpen) return;
-        if (ng.owner !== this.currentTurn) return;
-        this.clearHints();
-        this.selectedGuti = ng;
-        this.highlightSelection(ng);
-        this.showValidMoves(ng);
-        this.showMoveSliderFor(ng);
+
+        // Own piece -> select it
+        if (ng.owner === this.currentTurn) {
+          this.clearHints();
+          this.selectedGuti = ng;
+          this.highlightSelection(ng);
+          this.showValidMoves(ng);
+          this.showMoveSliderFor(ng);
+          return;
+        }
+
+        // Opponent piece -> try to capture it if an OWN guti is selected AND is adjacent
+        if (this.selectedGuti && this.selectedGuti.owner === this.currentTurn) {
+          const from = this.selectedGuti.nodeKey;
+          if (NODES[from].links.includes(ng.nodeKey)) {
+            this.tryMove(ng.nodeKey);
+          }
+        }
       });
     });
 
@@ -171,33 +198,33 @@ export class GameScene extends Phaser.Scene {
     if (this.gameEnded || !this.selectedGuti) return;
     const from = this.selectedGuti.nodeKey;
 
-    // Normal move
-    if (NODES[from].links.includes(target) && !this.occupied[target]) {
+    // ONE-STEP ONLY: target must be an adjacent connected node
+    if (!NODES[from].links.includes(target)) return;
+
+    const occupant = this.occupied[target];
+
+    // Empty adjacent node -> normal one-step move (no overlap)
+    if (!occupant) {
       this.executeMove(from, target);
       return;
     }
 
-    // Capture move
-    const jumped = this.getJumpedNode(from, target);
-    if (
-      jumped &&
-      this.occupied[jumped] &&
-      this.occupied[jumped]?.owner !== this.currentTurn &&
-      !this.occupied[target]
-    ) {
-      this.capture(jumped);
-      this.executeMove(from, target);
+    // Opponent on adjacent node -> CAPTURE (eat) it and move into place
+    if (occupant.owner !== this.currentTurn) {
+      const capturedNode = target;
+      this.capture(capturedNode);
+      this.executeMove(from, target, capturedNode);
       this.soundManager.playCaptureSound();
     }
+    // Own piece on the node -> blocked; no overlap allowed (do nothing)
   }
 
-  executeMove(from: NodeKey, to: NodeKey): void {
+  executeMove(from: NodeKey, to: NodeKey, captured?: NodeKey): void {
     this.selectedGuti!.moveTo(to, true, 300);
     delete this.occupied[from];
     this.occupied[to] = this.selectedGuti!;
 
-    const jumped = this.getJumpedNode(from, to);
-    this.moveHistoryManager.recordMove(this.currentTurn, from, to, jumped ?? undefined);
+    this.moveHistoryManager.recordMove(this.currentTurn, from, to, captured);
     this.soundManager.playSlideSound();
     this.clearHints();
     this.clearSelection();
@@ -213,21 +240,15 @@ export class GameScene extends Phaser.Scene {
     const targets: NodeKey[] = [];
 
     NODES[from].links.forEach(n => {
-      if (!this.occupied[n]) targets.push(n);
-    });
-
-    Object.keys(NODES).forEach(t => {
-      const target = t as NodeKey;
-      const jumped = this.getJumpedNode(from, target);
-      if (
-        jumped &&
-        this.occupied[jumped] &&
-        this.occupied[jumped]?.owner !== guti.owner &&
-        !this.occupied[target] &&
-        !targets.includes(target)
-      ) {
-        targets.push(target);
+      const occupant = this.occupied[n];
+      if (!occupant) {
+        // empty -> move (one step)
+        targets.push(n);
+      } else if (occupant.owner !== guti.owner) {
+        // opponent -> capture
+        targets.push(n);
       }
+      // own piece -> blocked
     });
 
     return targets;
@@ -237,19 +258,6 @@ export class GameScene extends Phaser.Scene {
   //  CAPTURE
   // ────────────────────────────────────────────
 
-  getJumpedNode(from: NodeKey, to: NodeKey): NodeKey | null {
-    const fx = NODES[from].x, fy = NODES[from].y;
-    const tx = NODES[to].x, ty = NODES[to].y;
-
-    for (const key in NODES) {
-      const n = NODES[key as NodeKey];
-      if (n.x === (fx + tx) / 2 && n.y === (fy + ty) / 2) {
-        return key as NodeKey;
-      }
-    }
-    return null;
-  }
-
   capture(node: NodeKey): void {
     const guti = this.occupied[node];
     if (!guti) return;
@@ -257,10 +265,13 @@ export class GameScene extends Phaser.Scene {
     if (guti.owner === 'RED') this.blueCaptured++;
     else this.redCaptured++;
 
+    // Remove from board state IMMEDIATELY (so the capturing guti can move into the node)
+    this.gutis = this.gutis.filter(g => g !== guti);
+    delete this.occupied[node];
+
+    // Visual removal happens asynchronously (no state mutation inside callback)
     guti.captureAnimation(() => {
       guti.sprite.destroy();
-      this.gutis = this.gutis.filter(g => g !== guti);
-      delete this.occupied[node];
     });
 
     this.updateScoreDisplay();
@@ -275,20 +286,15 @@ export class GameScene extends Phaser.Scene {
     const theme = this.themeManager.getCurrentTheme();
 
     NODES[from].links.forEach(n => {
-      if (!this.occupied[n]) this.drawHint(n, theme.hintNormalColor);
-    });
-
-    Object.keys(NODES).forEach(t => {
-      const target = t as NodeKey;
-      const jumped = this.getJumpedNode(from, target);
-      if (
-        jumped &&
-        this.occupied[jumped] &&
-        this.occupied[jumped]?.owner !== guti.owner &&
-        !this.occupied[target]
-      ) {
-        this.drawHint(target, theme.hintCaptureColor);
+      const occupant = this.occupied[n];
+      if (!occupant) {
+        // empty -> normal move
+        this.drawHint(n, theme.hintNormalColor);
+      } else if (occupant.owner !== guti.owner) {
+        // opponent -> capturable
+        this.drawHint(n, theme.hintCaptureColor);
       }
+      // own piece -> blocked
     });
   }
 
@@ -450,26 +456,26 @@ export class GameScene extends Phaser.Scene {
     this.settingsPanel.add(this.darkOverlay);
 
     // Panel box
-    const panel = this.add.rectangle(300, 300, 300, 380, 0xffffff).setDepth(201);
+    const panel = this.add.rectangle(300, 305, 300, 430, 0xffffff).setDepth(201);
     panel.setStrokeStyle(2, 0x333333);
     this.settingsPanel.add(panel);
 
     // Title
     this.settingsPanel.add(
-      this.add.text(300, 130, '⚙ Settings', {
+      this.add.text(300, 125, '⚙ Settings', {
         fontSize: '18px', color: '#333', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(202)
     );
 
     // Close X
-    const closeBg = this.add.rectangle(435, 120, 26, 26, 0xff4444).setDepth(202)
+    const closeBg = this.add.rectangle(435, 118, 26, 26, 0xff4444).setDepth(202)
       .setInteractive({ useHandCursor: true });
     closeBg.on('pointerdown', () => this.closeSettings());
     closeBg.on('pointerover', () => closeBg.setFillStyle(0xff6666));
     closeBg.on('pointerout', () => closeBg.setFillStyle(0xff4444));
     this.settingsPanel.add(closeBg);
     this.settingsPanel.add(
-      this.add.text(435, 120, '✕', { fontSize: '14px', color: '#fff' })
+      this.add.text(435, 118, '✕', { fontSize: '14px', color: '#fff' })
         .setOrigin(0.5).setDepth(203)
     );
 
@@ -513,13 +519,124 @@ export class GameScene extends Phaser.Scene {
       if (bottomLabel) bottomLabel.setText(this.getShapeLabel());
     });
 
+    // ── Guti Color Pair Button (opens color picker) ──
+    this.makePanelBtn(165, 395, '🎨 GUTI COLOR', 0x3F51B5, () => {
+      this.toggleColorPicker();
+    });
+
     // ── Background Picker Trigger (opens grid) ──
-    this.makePanelBtn(165, 395, '🎨 BACKGROUND', 0x795548, () => {
+    this.makePanelBtn(165, 440, '🎨 BACKGROUND', 0x795548, () => {
       this.toggleBackgroundPicker();
     });
 
     // Hide by default
     this.settingsPanel.setVisible(false);
+  }
+
+  // ────────────────────────────────────────────
+  //  GUTI COLOR PAIR PICKER
+  // ────────────────────────────────────────────
+
+  // Predefined guti color pairs (first = Player 1/RED side, second = Player 2/BLUE side)
+  static readonly COLOR_PAIRS: Array<{ name: string; p1: number; p2: number }> = [
+    { name: 'Red vs Blue',   p1: 0xff0000, p2: 0x0000ff },
+    { name: 'Green vs Orange', p1: 0x00aa00, p2: 0xff8c00 },
+    { name: 'Pink vs Teal',  p1: 0xe91e63, p2: 0x00bcd4 },
+    { name: 'Yellow vs Purple', p1: 0xffd000, p2: 0x9c27b0 },
+    { name: 'White vs Black', p1: 0xffffff, p2: 0x111111 },
+    { name: 'Brown vs Cyan', p1: 0x8d6e63, p2: 0x00b7eb },
+  ];
+
+  private toggleColorPicker(): void {
+    if (this.colorPickerOpen) {
+      this.hideColorPicker();
+      return;
+    }
+    this.openColorPicker();
+  }
+
+  private openColorPicker(): void {
+    this.colorPickerOpen = true;
+    this.colorPickerObjects = [];
+
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.4)
+      .setDepth(260).setInteractive();
+    overlay.on('pointerdown', () => this.hideColorPicker());
+    this.colorPickerObjects.push(overlay);
+
+    const box = this.add.rectangle(300, 300, 320, 360, 0xffffff).setDepth(261);
+    box.setStrokeStyle(2, 0x555555);
+    this.colorPickerObjects.push(box);
+
+    const title = this.add.text(300, 145, 'Choose Guti Colors', {
+      fontSize: '16px', fontStyle: 'bold', color: '#333',
+    }).setOrigin(0.5).setDepth(262);
+    this.colorPickerObjects.push(title);
+
+    // swatch grid
+    const startX = 300 - 110;
+    const startY = 195;
+    const spacingX = 110;
+    const spacingY = 70;
+
+    GameScene.COLOR_PAIRS.forEach((pair, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = startX + col * spacingX;
+      const y = startY + row * spacingY;
+
+      // pair swatch: two side-by-side colored circles + border
+      const frame = this.add.rectangle(x, y, 96, 44, 0xffffff)
+        .setStrokeStyle(2, 0xcccccc).setDepth(261);
+      this.colorPickerObjects.push(frame);
+
+      const c1 = this.add.circle(x - 14, y, 12, pair.p1).setDepth(262);
+      const c2 = this.add.circle(x + 14, y, 12, pair.p2).setDepth(262);
+      this.colorPickerObjects.push(c1);
+      this.colorPickerObjects.push(c2);
+
+      const nameT = this.add.text(x, y + 34, pair.name, {
+        fontSize: '10px', color: '#333',
+      }).setOrigin(0.5, 0).setDepth(262);
+      this.colorPickerObjects.push(nameT);
+
+      // + y offset for the label: make the whole swatch an interactive zone
+      const zone = this.add.rectangle(x, y, 96, 56, 0xffffff, 0).setDepth(263)
+        .setInteractive({ useHandCursor: true });
+      zone.on('pointerover', () => frame.setStrokeStyle(3, 0x4CAF50));
+      zone.on('pointerout', () => frame.setStrokeStyle(2, 0xcccccc));
+      zone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        p.event.stopPropagation();
+        this.applyColorPair(i);
+        this.hideColorPicker();
+      });
+      this.colorPickerObjects.push(zone);
+    });
+
+    this.updateBottomHint();
+  }
+
+  private hideColorPicker(): void {
+    if (!this.colorPickerOpen) return;
+    this.colorPickerOpen = false;
+    this.colorPickerObjects.forEach(o => { try { o.destroy(); } catch (_) {} });
+    this.colorPickerObjects = [];
+    this.updateBottomHint();
+  }
+
+  private applyColorPair(index: number): void {
+    const pairs = GameScene.COLOR_PAIRS;
+    if (index < 0 || index >= pairs.length) return;
+    this.currentColorPairIndex = index;
+    const pair = pairs[index];
+
+    // Recolor both sets of gutis in place (preserve nodeKey/owner)
+    this.gutis.forEach(g => {
+      const color = g.owner === 'RED' ? pair.p1 : pair.p2;
+      g.color = color;
+      g.sprite.setFillStyle(color);
+    });
+    this.soundManager.playMoveSound();
   }
 
   // ── Background Picker Grid (5 presets + upload) ──
@@ -541,16 +658,16 @@ export class GameScene extends Phaser.Scene {
     overlay.on('pointerdown', () => this.hideBackgroundPicker());
     this.bgPickerObjects.push(overlay);
 
-    const box = this.add.rectangle(300, 300, 340, 260, 0xffffff).setDepth(241);
+    const box = this.add.rectangle(300, 300, 340, 350, 0xffffff).setDepth(241);
     box.setStrokeStyle(2, 0x555555);
     this.bgPickerObjects.push(box);
 
-    const title = this.add.text(300, 180, 'Choose Background', {
+    const title = this.add.text(300, 160, 'Choose Background', {
       fontSize: '16px', fontStyle: 'bold', color: '#333',
     }).setOrigin(0.5).setDepth(242);
     this.bgPickerObjects.push(title);
 
-    // 5 preset thumbnails in a grid (3 columns)
+    // 6 preset thumbnails in a grid (3 columns x 2 rows)
     const startX = 300 - 105;
     const startY = 215;
     const spacing = 75;
@@ -597,11 +714,11 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Upload button below grid
-    const uploadBg = this.add.rectangle(300, 455, 240, 34, 0x2196F3).setDepth(242)
+    const uploadBg = this.add.rectangle(300, 450, 240, 34, 0x2196F3).setDepth(242)
       .setInteractive({ useHandCursor: true });
     this.bgPickerObjects.push(uploadBg);
 
-    const uploadTxt = this.add.text(300, 455, '📁 Upload from Device', {
+    const uploadTxt = this.add.text(300, 450, '📁 Upload from Device', {
       fontSize: '13px', fontStyle: 'bold', color: '#fff',
     }).setOrigin(0.5).setDepth(243);
     this.bgPickerObjects.push(uploadTxt);

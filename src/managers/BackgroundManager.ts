@@ -16,6 +16,7 @@ export const BACKGROUND_OPTIONS: BackgroundOption[] = [
   { id: 'greenmat', label: 'Green Mat', icon: '🌿' },
   { id: 'night',    label: 'Moonlit Night', icon: '🌙' },
   { id: 'marble',   label: 'Marble', icon: '🪨' },
+  { id: 'dino',     label: 'Funny Dino', icon: '🦖' },
 ];
 
 export class BackgroundManager {
@@ -36,6 +37,7 @@ export class BackgroundManager {
     this.generateGreenMat();
     this.generateNight();
     this.generateMarble();
+    this.generateDino();
   }
 
   getDefaultTextureKey(id: string): string | null {
@@ -183,6 +185,88 @@ export class BackgroundManager {
     g.lineStyle(3, 0x9a8f7a, 0.4);
     g.strokeRectShape({ x: 8, y: 8, width: 584, height: 584 } as any);
     this.finish(g, 'bg-marble', 'marble');
+  }
+
+  // ── 6. Funny Dinosaur (cartoon T-Rex) ──
+  private generateDino(): void {
+    const g = this.scene.make.graphics({ x: 0, y: 0 }, false);
+    // pastel sky
+    g.fillStyle(0xaee1f9, 1);
+    g.fillRect(0, 0, 600, 600);
+    // sun
+    g.fillStyle(0xffe066, 1);
+    g.fillCircle(530, 70, 40);
+    // clouds
+    g.fillStyle(0xffffff, 0.95);
+    g.fillEllipse(90, 90, 90, 30);
+    g.fillEllipse(120, 80, 60, 26);
+    g.fillEllipse(320, 120, 100, 30);
+    g.fillEllipse(350, 110, 60, 24);
+    // ground
+    g.fillStyle(0x9ade5b, 1);
+    g.fillRect(0, 470, 600, 130);
+    g.fillStyle(0x7cc24a, 1);
+    g.fillRect(0, 480, 600, 8);
+
+    // ── Funny T-Rex body (fat lime green) ──
+    const dinoGreen = 0x71c837;
+    const dinoDark = 0x4f9a24;
+    g.fillStyle(dinoGreen, 1);
+    // tail (triangles pointing up-right)
+    g.fillTriangle(120, 360, 200, 290, 210, 380);
+    // body (large ellipse)
+    g.fillEllipse(260, 360, 200, 130);
+    // belly
+    g.fillStyle(0xd9f5a3, 1);
+    g.fillEllipse(280, 380, 130, 80);
+    // head (circle top-right of body)
+    g.fillStyle(dinoGreen, 1);
+    g.fillCircle(380, 300, 62);
+    // mouth / open jaw
+    g.fillStyle(0xffffff, 1);
+    g.fillRect(395, 318, 52, 14);
+    g.fillStyle(0x3a3a3a, 1);
+    g.fillRect(395, 318, 52, 12);
+    // teeth
+    g.fillStyle(0xffffff, 1);
+    for (let i = 0; i < 5; i++) {
+      g.fillTriangle(400 + i * 10, 318, 405 + i * 10, 318, 402 + i * 10, 308);
+    }
+    // eye (big, funny)
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(392, 278, 20);
+    g.fillStyle(0x222222, 1);
+    g.fillCircle(398, 276, 9);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(402, 272, 3);
+    // tiny arms
+    g.lineStyle(12, dinoGreen, 1);
+    g.lineBetween(360, 380, 350, 415);
+    g.lineBetween(280, 400, 270, 430);
+    g.lineStyle(12, dinoDark, 1);
+    g.lineBetween(350, 415, 340, 412);
+    g.lineBetween(270, 430, 260, 427);
+    g.lineStyle(0, 0);
+    // nostrils
+    g.fillStyle(0x2f5d14, 1);
+    g.fillCircle(410, 300, 3);
+    g.fillCircle(418, 298, 3);
+
+    // feet (two fat legs)
+    g.fillStyle(dinoGreen, 1);
+    g.fillCircle(240, 455, 24);
+    g.fillCircle(320, 455, 24);
+    g.fillStyle(dinoDark, 1);
+    g.fillCircle(232, 468, 16);
+    g.fillCircle(328, 468, 16);
+
+    // small flower props for charm
+    g.fillStyle(0xff66cc, 1);
+    g.fillCircle(90, 500, 7);
+    g.fillCircle(500, 520, 7);
+    g.fillCircle(300, 540, 7);
+
+    this.finish(g, 'bg-dino', 'dino');
   }
 
   private finish(g: Phaser.GameObjects.Graphics, key: string, id: string): void {
