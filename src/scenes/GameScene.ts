@@ -7,6 +7,7 @@ import { SoundManager } from '../managers/SoundManager';
 import { ThemeManager } from '../managers/ThemeManager';
 import { StatsManager } from '../managers/StatsManager';
 import { MoveHistoryManager } from '../managers/MoveHistoryManager';
+import { BackgroundManager, BACKGROUND_OPTIONS } from '../managers/BackgroundManager';
 import { themeManager } from '../config/gameConfig';
 
 export class GameScene extends Phaser.Scene {
@@ -26,10 +27,14 @@ export class GameScene extends Phaser.Scene {
   themeManager!: ThemeManager;
   statsManager!: StatsManager;
   moveHistoryManager!: MoveHistoryManager;
+  backgroundManager!: BackgroundManager;
 
   // ── UI Refs (Phaser objects) ──
   turnText!: Phaser.GameObjects.Text;
   gearText!: Phaser.GameObjects.Text;
+  bgThumbs: Phaser.GameObjects.Image[] = [];
+  bgPickerObjects: Phaser.GameObjects.GameObject[] = [];
+  bgSelectionOpen = false;
 
   // ── Settings Panel ──
   settingsPanel!: Phaser.GameObjects.Group;
@@ -46,6 +51,7 @@ export class GameScene extends Phaser.Scene {
     this.themeManager = themeManager;
     this.statsManager = new StatsManager();
     this.moveHistoryManager = new MoveHistoryManager();
+    this.backgroundManager = new BackgroundManager(this);
 
     const theme = this.themeManager.getCurrentTheme();
     this.cameras.main.setBackgroundColor(theme.backgroundColor);
@@ -504,18 +510,118 @@ export class GameScene extends Phaser.Scene {
       if (bottomLabel) bottomLabel.setText(this.getShapeLabel());
     });
 
-    // ── BG Image Upload Button ──
-    this.makePanelBtn(165, 395, 'BG IMAGE', 0x795548, () => {
-      document.getElementById('bg-image-input')?.click();
-    });
-
-    // ── Reset BG Button ──
-    this.makePanelBtn(165, 440, 'RESET BG', 0x455A64, () => {
-      this.resetBackgroundImage();
+    // ── Background Picker Trigger (opens grid) ──
+    this.makePanelBtn(165, 395, '🎨 BACKGROUND', 0x795548, () => {
+      this.toggleBackgroundPicker();
     });
 
     // Hide by default
     this.settingsPanel.setVisible(false);
+  }
+
+  // ── Background Picker Grid (5 presets + upload) ──
+  private toggleBackgroundPicker(): void {
+    if (this.bgSelectionOpen) {
+      this.hideBackgroundPicker();
+      return;
+    }
+    this.openBackgroundPicker();
+  }
+
+  private openBackgroundPicker(): void {
+    this.bgSelectionOpen = true;
+    this.bgPickerObjects = [];
+
+    // Overlay to catch outside clicks
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.4)
+      .setDepth(240).setInteractive();
+    overlay.on('pointerdown', () => this.hideBackgroundPicker());
+    this.bgPickerObjects.push(overlay);
+
+    const box = this.add.rectangle(300, 300, 340, 260, 0xffffff).setDepth(241);
+    box.setStrokeStyle(2, 0x555555);
+    this.bgPickerObjects.push(box);
+
+    const title = this.add.text(300, 180, 'Choose Background', {
+      fontSize: '16px', fontStyle: 'bold', color: '#333',
+    }).setOrigin(0.5).setDepth(242);
+    this.bgPickerObjects.push(title);
+
+    // 5 preset thumbnails in a grid (3 columns)
+    const startX = 300 - 105;
+    const startY = 215;
+    const spacing = 75;
+
+    BACKGROUND_OPTIONS.forEach((opt, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = startX + col * spacing;
+      const y = startY + row * 80;
+
+      const texKey = this.backgroundManager.getDefaultTextureKey(opt.id);
+      if (!texKey) return;
+
+      const thumb = this.add.image(x, y, texKey)
+        .setDisplaySize(60, 60)
+        .setDepth(242)
+        .setInteractive({ useHandCursor: true })
+        .setStrokeStyle(2, 0xcccccc);
+
+      thumb.on('pointerover', () => thumb.setStrokeStyle(3, 0x4CAF50));
+      thumb.on('pointerout', () => thumb.setStrokeStyle(2, 0xcccccc));
+      thumb.on('pointerdown', (p: Phaser.Input.Pointer) => {
+        p.event.stopPropagation();
+        this.setDefaultBackground(opt.id);
+        this.hideBackgroundPicker();
+      });
+
+      this.bgThumbs.push(thumb);
+      this.bgPickerObjects.push(thumb);
+
+      const label = this.add.text(x, y + 42, opt.label, {
+        fontSize: '11px', color: '#333',
+      }).setOrigin(0.5).setDepth(242);
+      this.bgPickerObjects.push(label);
+
+      const iconT = this.add.text(x - 24, y - 28, opt.icon, {
+        fontSize: '12px',
+      }).setOrigin(0.5).setDepth(242);
+      this.bgPickerObjects.push(iconT);
+    });
+
+    // Upload button below grid
+    const uploadBg = this.add.rectangle(300, 455, 240, 34, 0x2196F3).setDepth(242)
+      .setInteractive({ useHandCursor: true });
+    this.bgPickerObjects.push(uploadBg);
+
+    const uploadTxt = this.add.text(300, 455, '📁 Upload from Device', {
+      fontSize: '13px', fontStyle: 'bold', color: '#fff',
+    }).setOrigin(0.5).setDepth(243);
+    this.bgPickerObjects.push(uploadTxt);
+
+    uploadBg.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      p.event.stopPropagation();
+      this.hideBackgroundPicker();
+      document.getElementById('bg-image-input')?.click();
+    });
+  }
+
+  private hideBackgroundPicker(): void {
+    if (!this.bgSelectionOpen) return;
+    this.bgSelectionOpen = false;
+    this.bgThumbs = [];
+    this.bgPickerObjects.forEach(o => { try { o.destroy(); } catch (_) {} });
+    this.bgPickerObjects = [];
+    this.updateBottomHint();
+  }
+
+  setDefaultBackground(id: string): void {
+    const texKey = this.backgroundManager.getDefaultTextureKey(id);
+    if (!texKey) return;
+    this.resetBackgroundImage();
+    this.bgImage = this.add.image(300, 300, texKey)
+      .setDisplaySize(600, 600)
+      .setDepth(0);
   }
 
   private makePanelBtn(

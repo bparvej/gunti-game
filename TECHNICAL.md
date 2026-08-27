@@ -60,17 +60,43 @@ Semi-transparent dark overlay (depth 200) + white panel (depth 201) centered at 
 │   [STATS]                    │
 │   [UNDO]                     │
 │   [SHAPE: Circle]            │
-│   [BG IMAGE]    ← upload    │
-│   [RESET BG]    ← clear     │
+│   [🎨 BACKGROUND]  ← opens  │
+│        preset grid           │
 └──────────────────────────────┘
 ```
 Click dark overlay or ✕ to close. Clicking panel buttons uses `stopPropagation()`.
 
+### Background Picker (🎨 BACKGROUND button)
+Opens modal grid (depth 240+) over the settings panel. **5 procedural presets** as thumbnails + upload option. Fully touch-friendly (large tap targets).
+```
+┌── Choose Background ────────┐
+│  [🌿Grass][🪵Wood][☁️Sky]   │
+│  [🌙Night  ][🏖️Sand        ] │
+│  [ ─────────────────── ]    │
+│  [📁 Upload from Device ]   │
+└──────────────────────────────┘
+```
+- Tapping a preset image sets it as the full-canvas background (depth 0).
+- "Upload from Device" triggers hidden `<input type="file">`, read as base64 → Phaser Image.
+- Overlay tap / ✕ closes the picker. Tracks all objects in `bgPickerObjects[]` for clean destroy.
+
+## Default Backgrounds (BackgroundManager.ts)
+5 procedural textures generated at scene start via Phaser Graphics → `generateTexture()`:
+| id | label | icon | appearance |
+|----|-------|------|-----------|
+| green | Grass | 🌿 | green fill + darker stripes |
+| wood | Wood | 🪵 | brown fill + vertical planks |
+| sky | Sky | ☁️ | blue + white clouds + green ground |
+| night | Night | 🌙 | dark + 120 stars + crescent moon |
+| sand | Sand | 🏖️ | tan fill + wavy lines + sea strip |
+Each stored as `defaultTextureKeys[id]` → texture keys `bg-green`, `bg-wood`, etc.
+
 ## Background Image Feature
-- **Upload**: Gear → BG IMAGE → triggers hidden `<input type="file" id="bg-image-input">` in HTML.
+- **5 presets**: procedural textures (see above), chosen from grid.
+- **Upload**: gear → 🎨 BACKGROUND → 📁 Upload from Device → hidden `<input type="file" id="bg-image-input">`.
 - File read as base64 DataURL → `textures.addBase64()` → Phaser Image at depth 0 (behind everything).
-- **Reset**: RESET BG button destroys the image.
-- Persists until scene restart or reset.
+- **Reset**: Uploading a new BG or picking a preset destroys the current `bgImage` first.
+- Persists until scene restart or replaced.
 
 ## File Structure
 ```
@@ -85,6 +111,7 @@ src/
   guti/Guti.ts         - Guti class: sprite (circle/square/bar), nodeKey, owner, moveTo(), captureAnimation().
   managers/
     ThemeManager.ts    - 5 themes (Classic Light, Dark, Ocean Blue, Sunset Gold, Purple Dream). Cycles on button.
+    BackgroundManager.ts - Generates 5 procedural background textures (grass, wood, sky, night, sand).
     SoundManager.ts    - Web Audio API beeps. No audio files. Methods: move, capture, win, slide(whoosh), yoo(celebration).
     StatsManager.ts    - localStorage persistence. Tracks redWins, blueWins, totalGames, averageMoves.
     MoveHistoryManager.ts - Move stack for undo. Records {player, from, to, captured}.
@@ -101,7 +128,10 @@ gameEnded: boolean         - Stops all input
 gutiShape: 'circle' | 'square' | 'bar'
 sliderTargets: NodeKey[]   - Available moves for mobile slider UI
 settingsOpen: boolean      - True when settings panel is visible
-bgImage: Image | null      - Custom background image (depth 0)
+bgSelectionOpen: boolean   - True when background picker grid is visible
+bgImage: Image | null      - Custom/procedural background image (depth 0)
+bgThumbs: Image[]          - Background picker thumbnails
+bgPickerObjects: GameObject[] - All objects in the picker modal (cleanup on close)
 ```
 
 ## Key Methods (GameScene)
@@ -118,6 +148,8 @@ bgImage: Image | null      - Custom background image (depth 0)
 | `undoMove()` | Pops last move, restores position + captured piece + capture counts |
 | `applyShapeToAll(shape)` | Destroys all guti sprites, recreates with new shape |
 | `openSettings()` / `closeSettings()` | Toggle settings panel visibility |
+| `openBackgroundPicker()` / `hideBackgroundPicker()` | Show/close preset grid modal (depth 240+) |
+| `setDefaultBackground(id)` | Sets a procedural preset as background (depth 0) |
 | `uploadBackgroundImage(file)` | FileReader → base64 → Phaser Image at depth 0 |
 | `resetBackgroundImage()` | Destroys bg image |
 
@@ -134,6 +166,7 @@ bgImage: Image | null      - Custom background image (depth 0)
 202-203 - Settings buttons/text
 220-222 - Stats overlay
 230-233 - Game over overlay
+240-243 - Background picker modal
 ```
 
 ## Tech Stack
