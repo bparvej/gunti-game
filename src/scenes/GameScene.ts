@@ -566,6 +566,7 @@ export class GameScene extends Phaser.Scene {
 
   // Predefined guti color pairs (first = Player 1/RED side, second = Player 2/BLUE side)
   static readonly COLOR_PAIRS: Array<{ name: string; p1: number; p2: number }> = [
+    { name: 'Lal Badshah vs Joker', p1: 0xff0000, p2: 0x1a1a1a },
     { name: 'Red vs Blue',   p1: 0xff0000, p2: 0x0000ff },
     { name: 'Green vs Orange', p1: 0x00aa00, p2: 0xff8c00 },
     { name: 'Pink vs Teal',  p1: 0xe91e63, p2: 0x00bcd4 },
@@ -591,44 +592,45 @@ export class GameScene extends Phaser.Scene {
     overlay.on('pointerdown', () => this.hideColorPicker());
     this.colorPickerObjects.push(overlay);
 
-    const box = this.add.rectangle(300, 300, 320, 360, 0xffffff).setDepth(261);
+    const box = this.add.rectangle(300, 300, 340, 360, 0xffffff).setDepth(261);
     box.setStrokeStyle(2, 0x555555);
     this.colorPickerObjects.push(box);
 
-    const title = this.add.text(300, 145, 'Choose Guti Colors', {
+    const title = this.add.text(300, 120, 'Choose Guti Colors', {
       fontSize: '16px', fontStyle: 'bold', color: '#333',
     }).setOrigin(0.5).setDepth(262);
     this.colorPickerObjects.push(title);
 
-    // swatch grid
-    const startX = 300 - 110;
-    const startY = 195;
-    const spacingX = 110;
-    const spacingY = 70;
+    // swatch grid (3 columns)
+    const startX = 300 - 80;
+    const startY = 175;
+    const spacingX = 80;
+    const spacingY = 68;
 
     GameScene.COLOR_PAIRS.forEach((pair, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
+      const col = i % 3;
+      const row = Math.floor(i / 3);
       const x = startX + col * spacingX;
       const y = startY + row * spacingY;
 
       // pair swatch: two side-by-side colored circles + border
-      const frame = this.add.rectangle(x, y, 96, 44, 0xffffff)
+      const frame = this.add.rectangle(x, y, 60, 40, 0xffffff)
         .setStrokeStyle(2, 0xcccccc).setDepth(261);
       this.colorPickerObjects.push(frame);
 
-      const c1 = this.add.circle(x - 14, y, 12, pair.p1).setDepth(262);
-      const c2 = this.add.circle(x + 14, y, 12, pair.p2).setDepth(262);
+      const r = 10;
+      const c1 = this.add.circle(x - 10, y, r, pair.p1).setDepth(262);
+      const c2 = this.add.circle(x + 10, y, r, pair.p2).setDepth(262);
       this.colorPickerObjects.push(c1);
       this.colorPickerObjects.push(c2);
 
-      const nameT = this.add.text(x, y + 34, pair.name, {
-        fontSize: '10px', color: '#333',
+      const nameT = this.add.text(x, y + 24, pair.name, {
+        fontSize: '9px', color: '#333', align: 'center', wordWrap: { width: 76 },
       }).setOrigin(0.5, 0).setDepth(262);
       this.colorPickerObjects.push(nameT);
 
-      // + y offset for the label: make the whole swatch an interactive zone
-      const zone = this.add.rectangle(x, y, 96, 56, 0xffffff, 0).setDepth(263)
+      // make the whole swatch an interactive zone
+      const zone = this.add.rectangle(x, y + 2, 60, 48, 0xffffff, 0).setDepth(263)
         .setInteractive({ useHandCursor: true });
       zone.on('pointerover', () => frame.setStrokeStyle(3, 0x4CAF50));
       zone.on('pointerout', () => frame.setStrokeStyle(2, 0xcccccc));

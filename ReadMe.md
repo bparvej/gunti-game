@@ -20,7 +20,7 @@ A modern, mobile-friendly implementation of the classic Bengali **Guti** board g
 
 ## ✨ Features
 
-- 🟥🟦 **Custom guti colors** — pick from 6 color pairs
+- 🟥🟦 **Custom guti colors** — pick from 7 color pairs (incl. Lal Badshah vs Joker)
 - 🎨 **6 sample backgrounds** (wood, velvet, mat, night, marble, funny dinosaur)
 - 📁 **Upload your own background** from your device
 - 🌗 **5 color themes** (Classic, Dark, Ocean, Sunset, Purple)

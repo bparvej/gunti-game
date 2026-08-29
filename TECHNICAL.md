@@ -152,11 +152,12 @@ Panel buttons use `pointerdown` + `stopPropagation()` so they don't trigger the 
 Gaming-vibes overlay modal listing the rules: 2 players × 3 gutis, tap-to-select, green move dots (one-step), no capturing, no overlap, win condition, and the settings tip. Dark "game card" panel with a glowing gold border. All wizard objects are tracked in a `group` array and destroyed together on close.
 
 ### Guti Color Pair Picker (🎨 GUTI COLOR) — depth 260+
-6 predefined pairs from static `GameScene.COLOR_PAIRS`, shown as two-dot swatches. Tapping calls `applyColorPair(i)` which recolors **existing** guti sprites in place (`g.sprite.setFillStyle(color)`) preserving nodeKey/owner.
+7 predefined pairs from static `GameScene.COLOR_PAIRS`, shown as two-dot swatches in a **3-column grid**. Tapping calls `applyColorPair(i)` which recolors **existing** guti sprites in place (`g.sprite.setFillStyle(color)`) preserving nodeKey/owner.
 
 ```
-Red vs Blue · Green vs Orange · Pink vs Teal
-Yellow vs Purple · White vs Black · Brown vs Cyan
+Lal Badshah vs Joker · Red vs Blue · Green vs Orange
+Pink vs Teal · Yellow vs Purple · White vs Black
+Brown vs Cyan
 ```
 
 ### Background Picker (🎨 BACKGROUND) — depth 240+
