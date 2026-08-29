@@ -456,26 +456,26 @@ export class GameScene extends Phaser.Scene {
     this.settingsPanel.add(this.darkOverlay);
 
     // Panel box
-    const panel = this.add.rectangle(300, 305, 300, 430, 0xffffff).setDepth(201);
+    const panel = this.add.rectangle(300, 300, 300, 480, 0xffffff).setDepth(201);
     panel.setStrokeStyle(2, 0x333333);
     this.settingsPanel.add(panel);
 
     // Title
     this.settingsPanel.add(
-      this.add.text(300, 125, '⚙ Settings', {
+      this.add.text(300, 115, '⚙ Settings', {
         fontSize: '18px', color: '#333', fontStyle: 'bold',
       }).setOrigin(0.5).setDepth(202)
     );
 
     // Close X
-    const closeBg = this.add.rectangle(435, 118, 26, 26, 0xff4444).setDepth(202)
+    const closeBg = this.add.rectangle(435, 108, 26, 26, 0xff4444).setDepth(202)
       .setInteractive({ useHandCursor: true });
     closeBg.on('pointerdown', () => this.closeSettings());
     closeBg.on('pointerover', () => closeBg.setFillStyle(0xff6666));
     closeBg.on('pointerout', () => closeBg.setFillStyle(0xff4444));
     this.settingsPanel.add(closeBg);
     this.settingsPanel.add(
-      this.add.text(435, 118, '✕', { fontSize: '14px', color: '#fff' })
+      this.add.text(435, 108, '✕', { fontSize: '14px', color: '#fff' })
         .setOrigin(0.5).setDepth(203)
     );
 
@@ -529,8 +529,59 @@ export class GameScene extends Phaser.Scene {
       this.toggleBackgroundPicker();
     });
 
+    // ── How to Play Button ──
+    this.makePanelBtn(165, 490, '❓ HOW TO PLAY', 0x009688, () => {
+      this.closeSettings();
+      this.showHowToPlay();
+    });
+
     // Hide by default
     this.settingsPanel.setVisible(false);
+  }
+
+  // ────────────────────────────────────────────
+  //  HOW TO PLAY
+  // ────────────────────────────────────────────
+
+  showHowToPlay(): void {
+    const lines = [
+      '🎮 HOW TO PLAY GUTI',
+      '',
+      '• Each player has 3 gutis.',
+      '• Tap your guti to select it.',
+      '• Green dots = valid move (1 step).',
+      '• Orange dots = enemy you can eat.',
+      '• Eat an enemy by tapping it when',
+      '  it is next to your guti.',
+      '• Cannot jump or overlap pieces.',
+      '• Line up all 3 gutis on any row,',
+      '  column or diagonal to WIN!',
+      '',
+      'Tip: use ⚙ to change colors,',
+      'background & guti shapes.',
+    ];
+
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.7).setDepth(280)
+      .setInteractive();
+    const box = this.add.rectangle(300, 300, 360, 430, 0xffffff).setDepth(281);
+    box.setStrokeStyle(2, 0x333333);
+    const title = this.add.text(300, 95, '📖 How to Play', {
+      fontSize: '18px', fontStyle: 'bold', color: '#333',
+    }).setOrigin(0.5).setDepth(282);
+    const body = this.add.text(300, 175, lines.join('\n'), {
+      fontSize: '13px', color: '#333', align: 'left', lineSpacing: 3,
+    }).setDepth(282);
+
+    const dismiss = [overlay, box, title, body];
+    overlay.on('pointerdown', () => dismiss.forEach(o => { try { o.destroy(); } catch (_) {} }));
+
+    // Close button
+    const closeBg = this.add.rectangle(422, 95, 26, 26, 0xff4444).setDepth(282)
+      .setInteractive({ useHandCursor: true });
+    closeBg.on('pointerdown', () => dismiss.forEach(o => { try { o.destroy(); } catch (_) {} }));
+    const closeX = this.add.text(422, 95, '✕', { fontSize: '14px', color: '#fff' })
+      .setOrigin(0.5).setDepth(283);
+    dismiss.push(closeBg, closeX);
   }
 
   // ────────────────────────────────────────────
