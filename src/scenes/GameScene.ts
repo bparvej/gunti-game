@@ -544,44 +544,82 @@ export class GameScene extends Phaser.Scene {
   // ────────────────────────────────────────────
 
   showHowToPlay(): void {
-    const lines = [
-      '🎮 HOW TO PLAY GUTI',
-      '',
-      '• Each player has 3 gutis.',
-      '• Tap your guti to select it.',
-      '• Green dots = valid move (1 step).',
-      '• Orange dots = enemy you can eat.',
-      '• Eat an enemy by tapping it when',
-      '  it is next to your guti.',
-      '• Cannot jump or overlap pieces.',
-      '• Line up all 3 gutis on any row,',
-      '  column or diagonal to WIN!',
-      '',
-      'Tip: use ⚙ to change colors,',
-      'background & guti shapes.',
+    const group: Phaser.GameObjects.GameObject[] = [];
+    const destroyAll = () => group.forEach(o => { try { o.destroy(); } catch (_) {} });
+
+    // ── Gaming-vibes "How to Play" overlay ──
+    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.78).setDepth(280)
+      .setInteractive();
+    group.push(overlay);
+
+    // Glow ring behind panel
+    group.push(this.add.rectangle(300, 300, 432, 482, 0xffcc00, 0.15).setDepth(280.5));
+
+    // Panel: dark "game card" with glowing border
+    const panel = this.add.rectangle(300, 300, 420, 470, 0x1b1b2f).setDepth(281);
+    panel.setStrokeStyle(3, 0xffcc00, 1);
+    group.push(panel);
+
+    // Top accent bar
+    group.push(this.add.rectangle(300, 82, 420, 3, 0xffcc00, 1).setDepth(282));
+
+    // Title
+    group.push(this.add.text(300, 98, '🎮  HOW TO PLAY', {
+      fontSize: '24px', fontStyle: 'bold', color: '#ffcc00',
+      stroke: '#000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(282));
+
+    // Subtitle
+    group.push(this.add.text(300, 130, 'Bangla Guti Game', {
+      fontSize: '13px', fontStyle: 'italic', color: '#9aa0d0',
+    }).setOrigin(0.5).setDepth(282));
+
+    // Content rows (icon + colored bullet + label)
+    const rows: Array<{ icon: string; text: string; color: string }> = [
+      { icon: '👥', text: '2 players, 3 gutis each', color: '#ffffff' },
+      { icon: '👆', text: 'Tap your guti to select it', color: '#ffffff' },
+      { icon: '🟢', text: 'Green ring = legal move (1 step)', color: '#7CFC00' },
+      { icon: '🟠', text: 'Orange ring = enemy you can eat', color: '#FFA500' },
+      { icon: '⚔️', text: 'Tap the enemy to eat it', color: '#FF6B6B' },
+      { icon: '🚫', text: 'No jumping, no overlapping', color: '#FF6B6B' },
+      { icon: '🏆', text: 'Line up all 3 to WIN!', color: '#ffcc00' },
     ];
 
-    const overlay = this.add.rectangle(300, 300, 600, 600, 0x000000, 0.7).setDepth(280)
-      .setInteractive();
-    const box = this.add.rectangle(300, 300, 360, 430, 0xffffff).setDepth(281);
-    box.setStrokeStyle(2, 0x333333);
-    const title = this.add.text(300, 95, '📖 How to Play', {
-      fontSize: '18px', fontStyle: 'bold', color: '#333',
-    }).setOrigin(0.5).setDepth(282);
-    const body = this.add.text(300, 175, lines.join('\n'), {
-      fontSize: '13px', color: '#333', align: 'left', lineSpacing: 3,
-    }).setDepth(282);
+    const startY = 165;
+    const rowH = 34;
+    rows.forEach((r, i) => {
+      const y = startY + i * rowH;
+      // row background for readability
+      group.push(this.add.rectangle(210, y + 5, 360, 28, 0x26264a, 0.5).setDepth(281.5));
+      // icon
+      group.push(this.add.text(120, y + 5, r.icon, { fontSize: '15px' }).setOrigin(0.5).setDepth(282));
+      // text
+      group.push(this.add.text(160, y + 5, r.text, {
+        fontSize: '14px', color: r.color,
+      }).setOrigin(0, 0.5).setDepth(282));
+    });
 
-    const dismiss = [overlay, box, title, body];
-    overlay.on('pointerdown', () => dismiss.forEach(o => { try { o.destroy(); } catch (_) {} }));
+    // Tips box
+    const tipBg = this.add.rectangle(210, 415, 360, 46, 0x26264a, 0.6).setDepth(281.5);
+    tipBg.setStrokeStyle(1, 0xffcc00, 0.4);
+    group.push(tipBg);
+    group.push(this.add.text(210, 415, '💡 Tip: Use ⚙ to change colors,\n   background & guti shapes', {
+      fontSize: '12px', color: '#9aa0d0', align: 'center',
+    }).setOrigin(0.5).setDepth(282));
 
-    // Close button
-    const closeBg = this.add.rectangle(422, 95, 26, 26, 0xff4444).setDepth(282)
+    // Close button (styled)
+    const closeBg = this.add.rectangle(300, 468, 120, 34, 0xffcc00).setDepth(282)
       .setInteractive({ useHandCursor: true });
-    closeBg.on('pointerdown', () => dismiss.forEach(o => { try { o.destroy(); } catch (_) {} }));
-    const closeX = this.add.text(422, 95, '✕', { fontSize: '14px', color: '#fff' })
-      .setOrigin(0.5).setDepth(283);
-    dismiss.push(closeBg, closeX);
+    closeBg.on('pointerover', () => closeBg.setFillStyle(0xffd633));
+    closeBg.on('pointerout', () => closeBg.setFillStyle(0xffcc00));
+    group.push(closeBg);
+    const closeTxt = this.add.text(300, 468, 'LET’S PLAY ▶', {
+      fontSize: '14px', fontStyle: 'bold', color: '#1b1b2f',
+    }).setOrigin(0.5).setDepth(283);
+    group.push(closeTxt);
+
+    overlay.on('pointerdown', destroyAll);
+    closeBg.on('pointerdown', destroyAll);
   }
 
   // ────────────────────────────────────────────
