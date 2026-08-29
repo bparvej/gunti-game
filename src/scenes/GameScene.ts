@@ -21,8 +21,6 @@ export class GameScene extends Phaser.Scene {
   gameEnded = false;
   gutiShape: 'circle' | 'square' | 'bar' = 'circle';
   sliderTargets: NodeKey[] = [];
-  redCaptured = 0;
-  blueCaptured = 0;
   currentColorPairIndex = 0;
   colorPickerOpen = false;
   colorPickerObjects: Phaser.GameObjects.GameObject[] = [];
@@ -133,13 +131,6 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      // Opponent piece -> try to capture it if an OWN guti is selected AND is adjacent
-      if (this.selectedGuti && this.selectedGuti.owner === this.currentTurn) {
-        const from = this.selectedGuti.nodeKey;
-        if (NODES[from].links.includes(guti.nodeKey)) {
-          this.tryMove(guti.nodeKey);
-        }
-      }
     });
   }
 
@@ -173,13 +164,7 @@ export class GameScene extends Phaser.Scene {
           return;
         }
 
-        // Opponent piece -> try to capture it if an OWN guti is selected AND is adjacent
-        if (this.selectedGuti && this.selectedGuti.owner === this.currentTurn) {
-          const from = this.selectedGuti.nodeKey;
-          if (NODES[from].links.includes(ng.nodeKey)) {
-            this.tryMove(ng.nodeKey);
-          }
-        }
+        // Opponent piece -> cannot eat or capture; do nothing
       });
     });
 
@@ -209,22 +194,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Opponent on adjacent node -> CAPTURE (eat) it and move into place
-    if (occupant.owner !== this.currentTurn) {
-      const capturedNode = target;
-      this.capture(capturedNode);
-      this.executeMove(from, target, capturedNode);
-      this.soundManager.playCaptureSound();
-    }
-    // Own piece on the node -> blocked; no overlap allowed (do nothing)
+    // Any piece on the node (own or opponent) -> blocked; cannot eat or capture
   }
 
-  executeMove(from: NodeKey, to: NodeKey, captured?: NodeKey): void {
+  executeMove(from: NodeKey, to: NodeKey): void {
     this.selectedGuti!.moveTo(to, true, 300);
     delete this.occupied[from];
     this.occupied[to] = this.selectedGuti!;
 
-    this.moveHistoryManager.recordMove(this.currentTurn, from, to, captured);
+    this.moveHistoryManager.recordMove(this.currentTurn, from, to);
     this.soundManager.playSlideSound();
     this.clearHints();
     this.clearSelection();
@@ -241,40 +219,11 @@ export class GameScene extends Phaser.Scene {
 
     NODES[from].links.forEach(n => {
       const occupant = this.occupied[n];
-      if (!occupant) {
-        // empty -> move (one step)
-        targets.push(n);
-      } else if (occupant.owner !== guti.owner) {
-        // opponent -> capture
-        targets.push(n);
-      }
-      // own piece -> blocked
+      // Only empty nodes are valid move targets (no overlap, no captures)
+      if (!occupant) targets.push(n);
     });
 
     return targets;
-  }
-
-  // ────────────────────────────────────────────
-  //  CAPTURE
-  // ────────────────────────────────────────────
-
-  capture(node: NodeKey): void {
-    const guti = this.occupied[node];
-    if (!guti) return;
-
-    if (guti.owner === 'RED') this.blueCaptured++;
-    else this.redCaptured++;
-
-    // Remove from board state IMMEDIATELY (so the capturing guti can move into the node)
-    this.gutis = this.gutis.filter(g => g !== guti);
-    delete this.occupied[node];
-
-    // Visual removal happens asynchronously (no state mutation inside callback)
-    guti.captureAnimation(() => {
-      guti.sprite.destroy();
-    });
-
-    this.updateScoreDisplay();
   }
 
   // ────────────────────────────────────────────
@@ -286,15 +235,9 @@ export class GameScene extends Phaser.Scene {
     const theme = this.themeManager.getCurrentTheme();
 
     NODES[from].links.forEach(n => {
+      // Only empty nodes are valid one-step move targets (no captures)
       const occupant = this.occupied[n];
-      if (!occupant) {
-        // empty -> normal move
-        this.drawHint(n, theme.hintNormalColor);
-      } else if (occupant.owner !== guti.owner) {
-        // opponent -> capturable
-        this.drawHint(n, theme.hintCaptureColor);
-      }
-      // own piece -> blocked
+      if (!occupant) this.drawHint(n, theme.hintNormalColor);
     });
   }
 
@@ -322,10 +265,6 @@ export class GameScene extends Phaser.Scene {
     const icon = this.currentTurn === 'RED' ? '🔴' : '🔵';
     this.turnText.setText(`${icon} ${this.currentTurn}'s Turn`);
     this.updateBottomHint();
-  }
-
-  updateScoreDisplay(): void {
-    // score display is integrated into turn text area — no separate score text needed
   }
 
   // ────────────────────────────────────────────
@@ -579,9 +518,8 @@ export class GameScene extends Phaser.Scene {
       { icon: '👥', text: '2 players, 3 gutis each', color: '#ffffff' },
       { icon: '👆', text: 'Tap your guti to select it', color: '#ffffff' },
       { icon: '🟢', text: 'Green ring = legal move (1 step)', color: '#7CFC00' },
-      { icon: '🟠', text: 'Orange ring = enemy you can eat', color: '#FFA500' },
-      { icon: '⚔️', text: 'Tap the enemy to eat it', color: '#FF6B6B' },
       { icon: '🚫', text: 'No jumping, no overlapping', color: '#FF6B6B' },
+      { icon: '🚫', text: 'No capturing / eating stones', color: '#FF6B6B' },
       { icon: '🏆', text: 'Line up all 3 to WIN!', color: '#ffcc00' },
     ];
 
@@ -913,22 +851,6 @@ export class GameScene extends Phaser.Scene {
       guti.moveTo(last.from, true);
       delete this.occupied[last.to];
       this.occupied[last.from] = guti;
-    }
-
-    // Restore captured piece
-    if (last.captured) {
-      const capturedOwner: Player = last.player === 'RED' ? 'BLUE' : 'RED';
-      const capturedColor = capturedOwner === 'RED'
-        ? this.themeManager.getCurrentTheme().redColor
-        : this.themeManager.getCurrentTheme().blueColor;
-      const restored = new Guti(this, last.captured, capturedOwner, capturedColor, this.gutiShape);
-      restored.sprite.setDepth(5);
-      this.occupied[last.captured] = restored;
-      this.gutis.push(restored);
-
-      // Update capture counts
-      if (capturedOwner === 'RED') this.redCaptured--;
-      else this.blueCaptured--;
     }
 
     this.moveCount--;

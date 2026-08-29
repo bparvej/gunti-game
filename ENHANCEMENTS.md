@@ -1,5 +1,7 @@
 # Guti Game Enhancements Summary
 
+> **⚠️ Note:** The **capture / eat mechanic was later removed** (per product decision). Gutis can no longer eat each other — they only move one step onto empty nodes, and pieces are never removed from the board. Some historical notes below (Capture Sound, capture stats, Orange hints, `captured` field, restore-captured on undo) are **no longer active** and were cleaned from the code. This file is kept as a historical record.
+
 ## ✨ New Features Implemented
 
 ### 🎵 Sound Manager

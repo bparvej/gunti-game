@@ -7,7 +7,6 @@ export interface Theme {
   blueColor: number;
   textColor: string;
   hintNormalColor: number;
-  hintCaptureColor: number;
 }
 
 export class ThemeManager {
@@ -22,7 +21,6 @@ export class ThemeManager {
       blueColor: 0x0000ff,
       textColor: '#000000',
       hintNormalColor: 0x00ff00,
-      hintCaptureColor: 0xffaa00,
     },
     {
       name: 'Dark Mode',
@@ -32,7 +30,6 @@ export class ThemeManager {
       blueColor: 0x4444ff,
       textColor: '#ffffff',
       hintNormalColor: 0x44ff44,
-      hintCaptureColor: 0xffcc44,
     },
     {
       name: 'Ocean Blue',
@@ -42,7 +39,6 @@ export class ThemeManager {
       blueColor: 0x1976d2,
       textColor: '#004d40',
       hintNormalColor: 0x26c6da,
-      hintCaptureColor: 0xffa726,
     },
     {
       name: 'Sunset Gold',
@@ -52,7 +48,6 @@ export class ThemeManager {
       blueColor: 0xfb8c00,
       textColor: '#bf360c',
       hintNormalColor: 0x9ccc65,
-      hintCaptureColor: 0xffa726,
     },
     {
       name: 'Purple Dream',
@@ -62,7 +57,6 @@ export class ThemeManager {
       blueColor: 0x7b1fa2,
       textColor: '#4a148c',
       hintNormalColor: 0x00bcd4,
-      hintCaptureColor: 0xffca28,
     },
   ];
 

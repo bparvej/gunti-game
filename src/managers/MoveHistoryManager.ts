@@ -5,7 +5,6 @@ export interface Move {
   player: Player;
   from: NodeKey;
   to: NodeKey;
-  captured?: NodeKey;
   moveNumber: number;
 }
 
@@ -13,12 +12,11 @@ export class MoveHistoryManager {
   private moves: Move[] = [];
   private moveNumber: number = 1;
 
-  recordMove(player: Player, from: NodeKey, to: NodeKey, captured?: NodeKey): void {
+  recordMove(player: Player, from: NodeKey, to: NodeKey): void {
     this.moves.push({
       player,
       from,
       to,
-      captured,
       moveNumber: this.moveNumber,
     });
     this.moveNumber++;
@@ -52,7 +50,7 @@ export class MoveHistoryManager {
 
   getFormattedHistory(): string {
     return this.moves
-      .map(m => `Move ${m.moveNumber}: ${m.player} from ${m.from} to ${m.to}${m.captured ? ` (captured ${m.captured})` : ''}`)
+      .map(m => `Move ${m.moveNumber}: ${m.player} from ${m.from} to ${m.to}`)
       .join('\n');
   }
 }

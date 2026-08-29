@@ -14,11 +14,6 @@ export class SoundManager {
     this.playBeep(400, 100);
   }
 
-  playCaptureSound(): void {
-    if (!this.soundEnabled) return;
-    this.playBeep(600, 150);
-  }
-
   playWinSound(): void {
     if (!this.soundEnabled) return;
     this.playBeep(800, 200);

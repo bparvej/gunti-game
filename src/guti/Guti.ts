@@ -51,15 +51,4 @@ export class Guti {
       this.sprite.setPosition(node.x, node.y);
     }
   }
-
-  captureAnimation(onComplete?: () => void): void {
-    this.scene.tweens.add({
-      targets: this.sprite,
-      scale: 1.5,
-      alpha: 0,
-      duration: 200,
-      ease: 'Power2.easeOut',
-      onComplete: onComplete,
-    });
-  }
 }

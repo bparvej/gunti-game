@@ -11,8 +11,7 @@ A modern, mobile-friendly implementation of the classic Bengali **Guti** board g
 - **2 players**, 3 pieces each. Player 1 (RED) moves first.
 - **Move:** tap one of your gutis, then tap an adjacent empty dot.
   - 🟢 green dots = legal moves (one step only)
-  - 🟠 orange dots = enemy gutis you can **eat**
-- **Capture:** tap an enemy guti next to yours to eat it.
+- **No capturing:** gutis can never eat or remove each other — you can only move onto empty dots.
 - **Win:** get all 3 of your gutis in a straight row, column, or diagonal.
 
 > In-game, open **⚙ Settings → ❓ How to Play** for the full rules.

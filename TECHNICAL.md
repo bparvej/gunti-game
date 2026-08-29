@@ -42,10 +42,9 @@ app.listen(process.env.PORT || 3000);
 - **Turn**: Player 1 (RED side) moves first; players alternate.
 - **Move**: tap your guti to select it, then tap an **adjacent connected** empty node.
   - **One step only** — a guti moves exactly one node per turn. No multi-node jumps.
-- **Capture (eat)**: if your guti is adjacent to an **opponent's** guti, tap the opponent's guti → it is **eaten** (removed) and your guti moves into its node. Eating still counts as one step.
-- **No overlap**: a guti can never land on a node occupied by your own piece — such taps are ignored.
+- **No capture / no eating**: pieces can **never** eat or remove an opponent's guti. A guti can only move onto **empty** nodes.
+- **No overlap**: a guti can never land on a node occupied by any piece (own **or** opponent) — such taps are ignored.
 - **Win**: align **all 3 of your gutis** on any win line (3 rows, 3 columns, 2 diagonals). Win is checked once `moveCount > 3`.
-- **Capture removal**: the eaten guti is removed from board state immediately, then a fade animation destroys its sprite.
 
 ---
 
@@ -91,7 +90,6 @@ Diags:   [TL,C,BR], [TR,C,BL]
 | `moveCount` | `number` | Total moves; used to gate win checking |
 | `gameEnded` | `boolean` | True after a winner is declared (blocks input) |
 | `gutiShape` | `'circle' \| 'square' \| 'bar'` | Sprite render shape |
-| `redCaptured` / `blueCaptured` | `number` | Pieces each side has lost |
 | `settingsOpen` / `bgSelectionOpen` / `colorPickerOpen` | `boolean` | Modal visibility flags |
 | `bgImage` | `Image \| null` | Current background image (depth -10) |
 
@@ -102,24 +100,19 @@ tryMove(target): void {
     const from = selectedGuti.nodeKey;
     if (NODES[from].links.includes(target)) {   // ONE STEP only
       const occupant = occupied[target];
-      if (!occupant)                 executeMove(from, target);            // move
-      else if (opponent) { capture(target); executeMove(from, target, target); } // eat
-      // own piece -> blocked (no overlap)
+      if (!occupant) executeMove(from, target); // move to empty node only
+      // any piece on the node (own or opponent) -> blocked (no captures, no overlap)
     }
   }
 }
 ```
 
-### Capture (`capture`)
-- Increments the opponent's captured count.
-- **Removes the piece from `occupied` and `gutis` synchronously** (critical — this lets the capturing guti move in).
-- Only the sprite fade/destroy is async (via `captureAnimation`). **Do not** mutate `occupied` inside the async callback (that was a past bug where it erased the capturing guti).
-
 ### Undo (`undoMove`)
 - Pops the last `Move` from `MoveHistoryManager`.
 - Moves the guti back from `to` → `from`.
-- If a piece was captured (recorded as `captured` node), **re-creates** it at that node and decrements the capture count.
 - Restores `currentTurn` to the mover.
+
+> **Note:** There is **no capture mechanic**. Every guti is always on the board until the game ends (a player wins or the board is full/blocked). No pieces are ever removed.
 
 ---
 
@@ -156,7 +149,7 @@ White box 300×480 centered at (300,300). 8 buttons (45px apart), each calls `ma
 Panel buttons use `pointerdown` + `stopPropagation()` so they don't trigger the dark-overlay close.
 
 ### HOW TO PLAY (❓) — depth 280+
-Overlay modal listing the rules: selection, green move dots, orange eat dots, one-step rule, no-overlap, win condition, and the settings tip.
+Gaming-vibes overlay modal listing the rules: 2 players × 3 gutis, tap-to-select, green move dots (one-step), no capturing, no overlap, win condition, and the settings tip. Dark "game card" panel with a glowing gold border. All wizard objects are tracked in a `group` array and destroyed together on close.
 
 ### Guti Color Pair Picker (🎨 GUTI COLOR) — depth 260+
 6 predefined pairs from static `GameScene.COLOR_PAIRS`, shown as two-dot swatches. Tapping calls `applyColorPair(i)` which recolors **existing** guti sprites in place (`g.sprite.setFillStyle(color)`) preserving nodeKey/owner.
@@ -202,9 +195,9 @@ Stored in `defaultTextureKeys[id]`; exposed via `getDefaultTextureKey(id)`.
 |-------|------|----------------|
 | `ThemeManager` | `managers/ThemeManager.ts` | 5 color themes, cycle/next, per-theme colors/hints |
 | `BackgroundManager` | `managers/BackgroundManager.ts` | 6 procedural sample textures |
-| `SoundManager` | `managers/SoundManager.ts` | Web Audio beeps (no files): move, capture, win, slide-whoosh, yoo |
+| `SoundManager` | `managers/SoundManager.ts` | Web Audio beeps (no files): move, win, slide-whoosh, yoo, error |
 | `StatsManager` | `managers/StatsManager.ts` | localStorage persistence: redWins, blueWins, totalGames, averageMoves |
-| `MoveHistoryManager` | `managers/MoveHistoryManager.ts` | Move stack for undo: `{player, from, to, captured}` |
+| `MoveHistoryManager` | `managers/MoveHistoryManager.ts` | Move stack for undo: `{player, from, to}` |
 
 ---
 
@@ -226,7 +219,7 @@ gunti-game/
     │   ├── Board.ts            # draws board lines
     │   ├── Nodes.ts            # 9-node graph + adjacency
     │   └── WinLines.ts         # 8 winning lines
-    ├── guti/Guti.ts            # piece sprite + moveTo + captureAnimation
+    ├── guti/Guti.ts            # piece sprite + moveTo
     └── managers/
         ├── ThemeManager.ts
         ├── BackgroundManager.ts
@@ -263,14 +256,13 @@ gunti-game/
 | Method | Purpose |
 |--------|---------|
 | `create()` | Init managers, build board/nodes/gutis/UI, generate backgrounds |
-| `addGuti(nodeKey, owner, color)` | Place a piece; own=select, adjacent opponent=eat |
-| `tryMove(target)` | One-step move OR capture; enforces no-overlap |
-| `executeMove(from, to, captured?)` | Animate, update `occupied`, record history, switch turn |
-| `capture(node)` | Remove opponent (state synced immediately) + fade |
-| `showValidMoves(guti)` | Green hints for moves, orange for adjacent enemies |
-| `getAvailableTargets(guti)` | For mobile slider + bottom-bar hint |
+| `addGuti(nodeKey, owner, color)` | Place a piece; own=select, opponent=ignored (no capture) |
+| `tryMove(target)` | One-step move to empty node only; enforces no-overlap/no-capture |
+| `executeMove(from, to)` | Animate, update `occupied`, record history, switch turn |
+| `showValidMoves(guti)` | Green hints for empty adjacent nodes only |
+| `getAvailableTargets(guti)` | For mobile slider + bottom-bar hint (empty adjacent nodes) |
 | `checkWin()` / `gameOver(winner)` | Detect / display winner modal + save stats |
-| `undoMove()` | Undo last move, restore captured piece |
+| `undoMove()` | Undo last move (no captured piece to restore) |
 | `applyShapeToAll(shape)` | Recreate all sprites with new shape |
 | `applyColorPair(index)` | Recolor both sides in place |
 | `showHowToPlay()` | Show rules overlay |
@@ -291,7 +283,8 @@ gunti-game/
 ## 13. Conventions & Notes for Future Agents
 
 - **Single source of truth for positions**: `this.occupied` map — always update it in sync with `this.gutis`.
-- **Never mutate game state inside async callbacks** (tweens/`delayedCall`) unless intended — it caused capture bugs.
+- **No capture mechanic**: gutis are never removed from the board; every piece stays for the whole game.
+- **Never mutate game state inside async callbacks** (tweens/`delayedCall`) unless intended.
 - **Depth values matter** — keep modals above `200`, game pieces at `5`, background negative.
 - **All UI is in-canvas** — preferences (theme, colors, shape, background) are **not** persisted across reloads; only stats persist (localStorage).
 - **Node coordinates are absolute** (100–500) and baked into `Nodes.ts`; the board is centered at (300,300).
