@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Board } from '../board/Board';
 import { NODES, NodeKey } from '../board/Nodes';
-import { Guti, Player } from '../guti/Guti';
+import { Guti, Player, Shape } from '../guti/Guti';
 import { WIN_LINES } from '../board/WinLines';
 import { SoundManager } from '../managers/SoundManager';
 import { ThemeManager } from '../managers/ThemeManager';
@@ -19,7 +19,7 @@ export class GameScene extends Phaser.Scene {
   moveHints: Phaser.GameObjects.Arc[] = [];
   moveCount = 0;
   gameEnded = false;
-  gutiShape: 'circle' | 'square' | 'bar' = 'circle';
+  gutiShape: Shape = 'circle';
   sliderTargets: NodeKey[] = [];
   currentColorPairIndex = 0;
   colorPickerOpen = false;
@@ -56,6 +56,7 @@ export class GameScene extends Phaser.Scene {
     this.moveHistoryManager = new MoveHistoryManager();
     this.backgroundManager = new BackgroundManager(this);
     this.backgroundManager.ensureGenerated();
+    this.ensureBadshahTextures();
 
     const theme = this.themeManager.getCurrentTheme();
     this.cameras.main.setBackgroundColor(theme.backgroundColor);
@@ -134,7 +135,7 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  applyShapeToAll(shape: 'circle' | 'square' | 'bar'): void {
+  applyShapeToAll(shape: Shape): void {
     const oldGutis = [...this.gutis];
     const newGutis: Guti[] = [];
     const newOccupied: Partial<Record<NodeKey, Guti>> = {};
@@ -173,6 +174,90 @@ export class GameScene extends Phaser.Scene {
     if (this.selectedGuti) {
       this.selectedGuti = this.occupied[this.selectedGuti.nodeKey] ?? null;
     }
+  }
+
+  // ────────────────────────────────────────────
+  //  LAL BADSHAH SHAPE (Red King vs Joker)
+  // ────────────────────────────────────────────
+
+  // "Lal Badshah" = लाल बादशाह (Red King). In Hindi/Urdu playing-card &
+  // chess terminology "Badshah" is the King; "Gulam" (ग़ुलाम, servant) is the
+  // Jack — and the Joker is the wild card. This themed pair uses a KING icon
+  // (gold crown, red card) for the RED player and a JOKER icon (jester hat,
+  // green card) for the BLUE player. Icons are drawn procedurally so the game
+  // stays fully self-contained (no image files), just like the backgrounds.
+  private ensureBadshahTextures(): void {
+    if (this.textures.exists('guti-king') && this.textures.exists('guti-joker')) return;
+    this.generateKingTexture();
+    this.generateJokerTexture();
+  }
+
+  private generateKingTexture(): void {
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    // Red playing-card body (Lal Badshah)
+    g.fillStyle(0xcc0000, 1);
+    g.fillRoundedRect(4, 6, 32, 36, 4);
+    g.lineStyle(1.5, 0xffd700, 1);
+    g.strokeRoundedRect(6, 8, 28, 32, 3);
+    // Gold crown base band
+    g.fillStyle(0xffd700, 1);
+    g.fillRect(9, 15, 22, 5);
+    // Crown points (triangles)
+    g.fillTriangle(9, 15, 12, 7, 16, 15);
+    g.fillTriangle(17, 15, 20, 6, 23, 15);
+    g.fillTriangle(24, 15, 28, 7, 31, 15);
+    // Crown jewels (white dots on the band)
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(12, 17.5, 1.6);
+    g.fillCircle(20, 17.5, 1.6);
+    g.fillCircle(28, 17.5, 1.6);
+    // Ruby on the crown band
+    g.fillStyle(0xe040fb, 1);
+    g.fillCircle(20, 20.5, 1.6);
+    // King face (simple) below the crown
+    g.fillStyle(0xffd9b3, 1);
+    g.fillCircle(20, 27, 5.5);
+    g.fillStyle(0x000000, 1);
+    g.fillCircle(18, 26, 1);
+    g.fillCircle(22, 26, 1);
+    // Beard
+    g.fillStyle(0x2c2c2c, 1);
+    g.fillRoundedRect(17.5, 29, 5, 5, 2);
+    g.generateTexture('guti-king', 40, 46);
+    g.destroy();
+  }
+
+  private generateJokerTexture(): void {
+    const g = this.make.graphics({ x: 0, y: 0 }, false);
+    // Green playing-card body (Joker/Gulam)
+    g.fillStyle(0x1b7f3b, 1);
+    g.fillRoundedRect(4, 6, 32, 36, 4);
+    g.lineStyle(1.5, 0xeeeeee, 1);
+    g.strokeRoundedRect(6, 8, 28, 32, 3);
+    // Jester hat (cone) pointing up
+    g.fillStyle(0x8e44ad, 1);
+    g.fillTriangle(10, 20, 20, 5, 30, 20);
+    // Hat band
+    g.fillStyle(0xf1c40f, 1);
+    g.fillRect(10, 18, 20, 4);
+    // Bell on the cone tip
+    g.fillStyle(0xf1c40f, 1);
+    g.fillCircle(20, 5, 2.6);
+    // Jester face
+    g.fillStyle(0xffd9b3, 1);
+    g.fillCircle(20, 28, 6);
+    // Eyes
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(17, 27, 2.4);
+    g.fillCircle(23, 27, 2.4);
+    g.fillStyle(0x111111, 1);
+    g.fillCircle(17, 27, 1.1);
+    g.fillCircle(23, 27, 1.1);
+    // Smile
+    g.fillStyle(0xa30000, 1);
+    g.fillRoundedRect(17.5, 31, 5, 2.5, 1.5);
+    g.generateTexture('guti-joker', 40, 46);
+    g.destroy();
   }
 
   // ────────────────────────────────────────────
@@ -365,7 +450,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private getShapeLabel(): string {
-    const icons: Record<string, string> = { circle: '●', square: '■', bar: '│' };
+    const icons: Record<string, string> = { circle: '●', square: '■', bar: '│', lalbadshah: '👑' };
     return `Shape: ${icons[this.gutiShape]}`;
   }
 
@@ -446,8 +531,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     // ── Shape Cycle Button ──
-    const shapeNames: Record<string, string> = { circle: 'Circle', square: 'Square', bar: 'Stick' };
-    const shapeOrder: Array<'circle' | 'square' | 'bar'> = ['circle', 'square', 'bar'];
+    const shapeNames: Record<string, string> = {
+      circle: 'Circle', square: 'Square', bar: 'Stick', lalbadshah: 'Lal Badshah',
+    };
+    const shapeOrder: Shape[] = ['circle', 'square', 'bar', 'lalbadshah'];
     this.makePanelBtn(165, 350, `SHAPE: ${shapeNames[this.gutiShape]}`, 0x607D8B, (txt) => {
       const idx = (shapeOrder.indexOf(this.gutiShape) + 1) % shapeOrder.length;
       this.gutiShape = shapeOrder[idx];

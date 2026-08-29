@@ -3,6 +3,8 @@ import { NodeKey, NODES } from '../board/Nodes';
 
 export type Player = 'RED' | 'BLUE';
 
+export type Shape = 'circle' | 'square' | 'bar' | 'lalbadshah';
+
 export class Guti {
   sprite: any;
   nodeKey: NodeKey;
@@ -15,7 +17,7 @@ export class Guti {
     nodeKey: NodeKey,
     owner: Player,
     color: number,
-    shape: 'circle' | 'square' | 'bar' = 'circle'
+    shape: Shape = 'circle'
   ) {
     this.nodeKey = nodeKey;
     this.owner = owner;
@@ -23,7 +25,13 @@ export class Guti {
     this.color = color;
 
     const node = NODES[nodeKey];
-    if (shape === 'circle') {
+    if (shape === 'lalbadshah') {
+      // Lal Badshah (Red King) vs Joker/Gulam — themed pair shape.
+      // Textures 'guti-king' (RED) and 'guti-joker' (BLUE) are generated
+      // procedurally by GameScene.ensureBadshahTextures().
+      const texKey = owner === 'RED' ? 'guti-king' : 'guti-joker';
+      this.sprite = scene.add.image(node.x, node.y, texKey).setDisplaySize(34, 38);
+    } else if (shape === 'circle') {
       this.sprite = scene.add.circle(node.x, node.y, 14, color);
     } else if (shape === 'square') {
       this.sprite = scene.add.rectangle(node.x, node.y, 28, 28, color).setOrigin(0.5);

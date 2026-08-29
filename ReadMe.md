@@ -24,7 +24,7 @@ A modern, mobile-friendly implementation of the classic Bengali **Guti** board g
 - 🎨 **6 sample backgrounds** (wood, velvet, mat, night, marble, funny dinosaur)
 - 📁 **Upload your own background** from your device
 - 🌗 **5 color themes** (Classic, Dark, Ocean, Sunset, Purple)
-- 🅾️ **Piece shapes** — circle, square, bar (ঝাড়ুর কাঠি)
+- 🅾️ **Piece shapes** — circle, square, bar (ঝাড়ুর কাঠি), and **Lal Badshah** (Red King 👑 vs Joker 🤡)
 - 🔄 **Undo** moves
 - 🔊 **Sound effects** (pure Web Audio, no files)
 - 📊 **Persistent stats** (wins, average moves)

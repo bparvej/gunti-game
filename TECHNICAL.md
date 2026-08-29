@@ -89,7 +89,7 @@ Diags:   [TL,C,BR], [TR,C,BL]
 | `currentTurn` | `'RED' \| 'BLUE'` | Whose turn it is |
 | `moveCount` | `number` | Total moves; used to gate win checking |
 | `gameEnded` | `boolean` | True after a winner is declared (blocks input) |
-| `gutiShape` | `'circle' \| 'square' \| 'bar'` | Sprite render shape |
+| `gutiShape` | `'circle' \| 'square' \| 'bar' \| 'lalbadshah'` | Sprite render shape |
 | `settingsOpen` / `bgSelectionOpen` / `colorPickerOpen` | `boolean` | Modal visibility flags |
 | `bgImage` | `Image \| null` | Current background image (depth -10) |
 
@@ -141,7 +141,7 @@ White box 300×480 centered at (300,300). 8 buttons (45px apart), each calls `ma
 | 215 | SOUND | toggle on/off (Web Audio) |
 | 260 | STATS | show persistent stats overlay |
 | 305 | UNDO | undo last move |
-| 350 | SHAPE | cycle circle / square / bar |
+| 350 | SHAPE | cycle circle / square / bar / Lal Badshah |
 | 395 | 🎨 GUTI COLOR | open color-pair picker |
 | 440 | 🎨 BACKGROUND | open background picker |
 | 490 | ❓ HOW TO PLAY | show rules overlay |
@@ -150,6 +150,14 @@ Panel buttons use `pointerdown` + `stopPropagation()` so they don't trigger the 
 
 ### HOW TO PLAY (❓) — depth 280+
 Gaming-vibes overlay modal listing the rules: 2 players × 3 gutis, tap-to-select, green move dots (one-step), no capturing, no overlap, win condition, and the settings tip. Dark "game card" panel with a glowing gold border. All wizard objects are tracked in a `group` array and destroyed together on close.
+
+### Guti Shape ("SHAPE" button, gear ⚙ y=350)
+Cycles `circle → square → bar → lalbadshah`. The **Lal Badshah** shape (`'lalbadshah'`) is a themed **pair**:
+- **RED player → Lal Badshah (लाल बादशाह, "Red King")**: in Hindi/Urdu playing-card **and** chess terminology *Badshah* is the **King**. Rendered as a red playing-card with a gold **crown**.
+- **BLUE player → Joker/Gulam (ग़ुलाम, servant = the Jack)**: rendered as a green playing-card with a **jester hat** (joker wild card).
+
+Both textures (`guti-king`, `guti-joker`) are drawn **procedurally** via `GameScene.ensureBadshahTextures()` → `generateKingTexture()` / `generateJokerTexture()` (Phaser `Graphics` + `generateTexture`), so no image files are needed — matching the fully self-contained design. `Guti` renders them with `scene.add.image`.
+> Note: the color-pair picker recolors via `setFillStyle`, which is a no-op on these image textures (the themed pair keeps its fixed colors).
 
 ### Guti Color Pair Picker (🎨 GUTI COLOR) — depth 260+
 7 predefined pairs from static `GameScene.COLOR_PAIRS`, shown as two-dot swatches in a **3-column grid**. Tapping calls `applyColorPair(i)` which recolors **existing** guti sprites in place (`g.sprite.setFillStyle(color)`) preserving nodeKey/owner.
@@ -220,7 +228,7 @@ gunti-game/
     │   ├── Board.ts            # draws board lines
     │   ├── Nodes.ts            # 9-node graph + adjacency
     │   └── WinLines.ts         # 8 winning lines
-    ├── guti/Guti.ts            # piece sprite + moveTo
+    ├── guti/Guti.ts            # piece sprite + moveTo + lalbadshah image rendering
     └── managers/
         ├── ThemeManager.ts
         ├── BackgroundManager.ts
@@ -265,6 +273,7 @@ gunti-game/
 | `checkWin()` / `gameOver(winner)` | Detect / display winner modal + save stats |
 | `undoMove()` | Undo last move (no captured piece to restore) |
 | `applyShapeToAll(shape)` | Recreate all sprites with new shape |
+| `ensureBadshahTextures()` | Generate `guti-king` / `guti-joker` textures (Lal Badshah shape) |
 | `applyColorPair(index)` | Recolor both sides in place |
 | `showHowToPlay()` | Show rules overlay |
 | `uploadBackgroundImage(file)` | Handle user image upload |
