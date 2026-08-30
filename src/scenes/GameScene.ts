@@ -100,7 +100,9 @@ export class GameScene extends Phaser.Scene {
   private drawNodes(theme: any): void {
     Object.entries(NODES).forEach(([key, n]) => {
       const dot = this.add.circle(n.x, n.y, 8, theme.boardLineColor).setDepth(1);
-      dot.setInteractive();
+      // Large invisible hit area (radius 40) for easy tap; visual stays at radius 8.
+      // Board points are >=200px apart, so hit boxes never overlap / mis-select.
+      dot.setInteractive(new Phaser.Geom.Circle(0, 0, 40), Phaser.Geom.Circle.Contains);
       dot.on('pointerdown', () => {
         if (this.settingsOpen) { this.closeSettings(); return; }
         this.hideMoveSlider();
@@ -421,7 +423,9 @@ export class GameScene extends Phaser.Scene {
 
   private createGearButton(): void {
     const bg = this.add.rectangle(575, 18, 30, 30, 0x333333, 0.8)
-      .setDepth(8).setInteractive({ useHandCursor: true });
+      .setDepth(8);
+    // Large invisible hit area (radius 24 = 48px tap target); 30x30 visual unchanged.
+    bg.setInteractive(new Phaser.Geom.Circle(0, 0, 24), Phaser.Geom.Circle.Contains);
 
     this.gearText = this.add.text(575, 18, '⚙', {
       fontSize: '16px', color: '#ffffff',

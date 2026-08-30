@@ -284,6 +284,11 @@ gunti-game/
 ## 12. Interaction & Mobile
 
 - **Touch/click**: all interactive objects call `.setInteractive()` and listen for `pointerdown`.
+- **Enlarged invisible hitboxes** (mobile-friendly): the visual sizes stay unchanged, but the interactive footprint is grown via `setInteractive(new Phaser.Geom.Circle(0, 0, R), Phaser.Geom.Circle.Contains)`:
+  - Board node dots: hit radius **40** (visual stays radius 8).
+  - Guti sprites: hit radius **38** (visual stays circle r14 / 28×28 square / 10×36 bar / 34×38 image).
+  - Gear (⚙) button: hit radius **24** (visual stays 30×30).
+  - Because every adjacent board point is exactly **200px apart**, even radius-40 hit circles never overlap, so no wrong-point selection can occur (`topOnly` defaults to true — the top-most object under a tap, e.g. a guti sitting on a node, wins).
 - **Mobile move slider**: on selecting a guti, a DOM range slider (`#move-slider-wrap`) appears letting mobile users pick a target, with MOVE/CANCEL buttons.
 - Canvas uses `touch-action: none` / `manipulation` and `-webkit-tap-highlight-color: transparent`.
 - Viewport meta sets `user-scalable=no`, `maximum-scale=1.0` to prevent double-tap zoom.

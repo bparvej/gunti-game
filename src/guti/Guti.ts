@@ -40,7 +40,12 @@ export class Guti {
       this.sprite = scene.add.rectangle(node.x, node.y, 10, 36, color).setOrigin(0.5);
     }
 
-    this.sprite.setInteractive();
+    // Large INVISIBLE hit area (radius 38) for comfortable finger tapping.
+    // The visual stays unchanged; only the interactive footprint grows.
+    this.sprite.setInteractive(
+      new Phaser.Geom.Circle(0, 0, 38),
+      Phaser.Geom.Circle.Contains
+    );
   }
 
   moveTo(nodeKey: NodeKey, animate: boolean = true, duration: number = 300): void {
