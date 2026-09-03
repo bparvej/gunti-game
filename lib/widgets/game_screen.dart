@@ -50,43 +50,46 @@ class _GameScreenState extends State<GameScreen>
     final theme = gm.currentTheme;
 
     return Scaffold(
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: _handleBackgroundTap,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: _buildBackgroundGradient(gm, theme),
-          ),
-          child: Stack(
-            children: [
-              _buildBackground(gm),
-              _buildBoardArea(gm, theme),
-              _buildTopBar(theme, gm),
-              _buildBottomBar(theme, gm),
-              _buildGearButton(),
-              if (gm.gameEnded && gm.winner != null)
-                _buildGameOverOverlay(gm.winner!, theme),
-              if (_showHowToPlay)
-                HowToPlayOverlay(onDismiss: () {
-                  setState(() => _showHowToPlay = false);
-                }),
-              if (gm.settingsOpen) SettingsPanel(gameManager: gm),
-              if (gm.colorPickerOpen) _buildColorPicker(gm, theme),
-              if (gm.bgSelectionOpen) _buildBackgroundPicker(gm, theme),
-              if (gm.statsOpen) StatsDialog(gameManager: gm),
-              if (gm.showMoveSlider)
-                MoveSlider(
-                  theme: theme,
-                  targets: gm.moveSliderTargets,
-                  selectedIndex: gm.selectedSliderIndex,
-                  onIndexChanged: (i) => gm.onSliderChanged(i),
-                  onConfirm: () => gm.confirmMoveFromSlider(),
-                  onCancel: () => gm.cancelMoveSlider(),
-                ),
-            ],
-          ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: _buildBackgroundGradient(gm, theme),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _handleBackgroundTap,
+                child: Container(),
+              ),
+            ),
+            _buildBackground(gm),
+            _buildBoardArea(gm, theme),
+            _buildTopBar(theme, gm),
+            _buildBottomBar(theme, gm),
+            _buildGearButton(),
+            if (gm.gameEnded && gm.winner != null)
+              _buildGameOverOverlay(gm.winner!, theme),
+            if (_showHowToPlay)
+              HowToPlayOverlay(onDismiss: () {
+                setState(() => _showHowToPlay = false);
+              }),
+            if (gm.settingsOpen) SettingsPanel(gameManager: gm),
+            if (gm.colorPickerOpen) _buildColorPicker(gm, theme),
+            if (gm.bgSelectionOpen) _buildBackgroundPicker(gm, theme),
+            if (gm.statsOpen) StatsDialog(gameManager: gm),
+            if (gm.showMoveSlider)
+              MoveSlider(
+                theme: theme,
+                targets: gm.moveSliderTargets,
+                selectedIndex: gm.selectedSliderIndex,
+                onIndexChanged: (i) => gm.onSliderChanged(i),
+                onConfirm: () => gm.confirmMoveFromSlider(),
+                onCancel: () => gm.cancelMoveSlider(),
+              ),
+          ],
         ),
       ),
     );
