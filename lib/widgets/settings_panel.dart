@@ -25,53 +25,56 @@ class SettingsPanel extends StatelessWidget {
                 scale: value,
                 child: Opacity(
                   opacity: value,
-                  child: Container(
-                    width: 360,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.white,
-                          Colors.grey.shade50,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 40,
-                          offset: const Offset(0, 20),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: Container(
+                      width: 360,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white,
+                            Colors.grey.shade50,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildHeader(),
-                              const SizedBox(height: 20),
-                              _buildSettingButton(
-                                "THEME",
-                                theme.name,
-                                color: const Color(0xFF50A897),
-                                icon: Icons.palette_rounded,
-                                onPressed: () {
-                                  gm.switchTheme();
-                                },
-                              ),
-                              _buildSettingButton(
-                                "SOUND",
-                                gm.audioService.isSoundEnabled() ? 'ON' : 'OFF',
-                                color: const Color(0xFF1A237E),
-                                icon: gm.audioService.isSoundEnabled()
-                                    ? Icons.volume_up_rounded
-                                    : Icons.volume_off_rounded,
-                                onPressed: () => gm.audioService.toggleSound(),
-                              ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 40,
+                            offset: const Offset(0, 20),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildHeader(),
+                                const SizedBox(height: 20),
+                                _buildSettingButton(
+                                  "THEME",
+                                  theme.name,
+                                  color: const Color(0xFF50A897),
+                                  icon: Icons.palette_rounded,
+                                  onPressed: () {
+                                    gm.switchTheme();
+                                  },
+                                ),
+                                _buildSettingButton(
+                                  "SOUND",
+                                  gm.audioService.isSoundEnabled() ? 'ON' : 'OFF',
+                                  color: const Color(0xFF1A237E),
+                                  icon: gm.audioService.isSoundEnabled()
+                                      ? Icons.volume_up_rounded
+                                      : Icons.volume_off_rounded,
+                                  onPressed: () => gm.audioService.toggleSound(),
+                                ),
                               _buildSettingButton(
                                 "STATS",
                                 "View statistics",
@@ -143,7 +146,8 @@ class SettingsPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              );
+              ),
+            );
             },
           ),
         ),

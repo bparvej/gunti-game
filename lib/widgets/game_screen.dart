@@ -60,7 +60,7 @@ class _GameScreenState extends State<GameScreen>
           children: [
             Positioned.fill(
               child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
+                behavior: HitTestBehavior.deferToChild,
                 onTap: _handleBackgroundTap,
                 child: Container(),
               ),
