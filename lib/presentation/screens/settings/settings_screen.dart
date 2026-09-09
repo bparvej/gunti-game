@@ -31,7 +31,48 @@ class SettingsScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Language toggle
+              Text(s['yourName']!, style: AppTextStyles.bodyBold),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: settingsState.settings.playerName,
+                onChanged: (value) => context.read<SettingsCubit>().setPlayerName(value),
+                style: AppTextStyles.body,
+                decoration: InputDecoration(
+                  hintText: s['onboardingNameHint'],
+                  filled: true,
+                  fillColor: AppColors.lightGrey,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(s['difficulty']!, style: AppTextStyles.bodyBold),
+              const SizedBox(height: 8),
+              Row(
+                children: Difficulty.values.map((difficulty) {
+                  final label = s[difficultyKey(difficulty)]!;
+                  final selected = settingsState.settings.difficulty == difficulty;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => context.read<SettingsCubit>().setDifficulty(difficulty),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        color: selected ? AppColors.deepBlue : AppColors.lightGrey,
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.buttonSmall.copyWith(
+                            color: selected ? AppColors.white : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
               _SettingRow(
                 label: s['language']!,
                 trailing: Row(
@@ -55,7 +96,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
 
-              // Theme toggle
               _SettingRow(
                 label: s['theme']!,
                 trailing: Row(
@@ -79,7 +119,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
 
-              // Sound toggle
               _SettingRow(
                 label: s['sound']!,
                 trailing: Switch(
@@ -88,7 +127,6 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
 
-              // Vibration toggle
               _SettingRow(
                 label: s['vibration']!,
                 trailing: Switch(
@@ -99,7 +137,6 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // Guti shape picker
               Text(s['shape']!, style: AppTextStyles.bodyBold),
               const SizedBox(height: 8),
               Row(
@@ -128,7 +165,6 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // Stats
               BlocBuilder<StatsCubit, StatsState>(
                 builder: (context, statsState) {
                   final stats = statsState.stats;
@@ -165,13 +201,22 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 24),
 
-              // How to play
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => context.push('/how-to-play'),
-                  child: Text(s['howToPlay']!),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => context.go('/history'),
+                      child: Text(s['history']!),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => context.push('/how-to-play'),
+                      child: Text(s['howToPlay']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -186,6 +231,14 @@ class SettingsScreen extends StatelessWidget {
       case GutuShape.square: return 'square';
       case GutuShape.bar: return 'bar';
       case GutuShape.lalBadshah: return 'lalBadshah';
+    }
+  }
+
+  String difficultyKey(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy: return 'easy';
+      case Difficulty.medium: return 'medium';
+      case Difficulty.hard: return 'hard';
     }
   }
 

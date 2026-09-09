@@ -9,6 +9,12 @@ class GameState extends Equatable {
   final GameStatus status;
   final List<MoveRecord> moveHistory;
   final List<String> availableTargets;
+  final GameMode mode;
+  final Difficulty difficulty;
+  final Player humanSide;
+  final bool paused;
+  final bool aiThinking;
+  final bool hasSavedGame;
 
   const GameState({
     required this.occupied,
@@ -18,23 +24,37 @@ class GameState extends Equatable {
     required this.status,
     required this.moveHistory,
     required this.availableTargets,
+    required this.mode,
+    required this.difficulty,
+    required this.humanSide,
+    required this.paused,
+    required this.aiThinking,
+    required this.hasSavedGame,
   });
 
-  factory GameState.initial() {
-    return GameState(
-      occupied: {
-        'T': 'red', 'TL': 'red', 'TR': 'red',
-        'B': 'blue', 'BL': 'blue', 'BR': 'blue',
-        'C': null, 'L': null, 'R': null,
-      },
-      selectedNode: null,
-      currentTurn: Player.red,
-      moveCount: 0,
-      status: GameStatus.ongoing,
-      moveHistory: const [],
-      availableTargets: const [],
-    );
-  }
+  factory GameState.initial() => GameState(
+        occupied: initialOccupiedMap(),
+        selectedNode: null,
+        currentTurn: Player.red,
+        moveCount: 0,
+        status: GameStatus.ongoing,
+        moveHistory: const [],
+        availableTargets: const [],
+        mode: GameMode.twoPlayers,
+        difficulty: Difficulty.medium,
+        humanSide: Player.red,
+        paused: false,
+        aiThinking: false,
+        hasSavedGame: false,
+      );
+
+  /// True when the device must move next in single-player mode.
+  bool get isAiTurn =>
+      mode == GameMode.singlePlayer &&
+      status == GameStatus.ongoing &&
+      !paused &&
+      !aiThinking &&
+      currentTurn != humanSide;
 
   GameState copyWith({
     Map<String, String?>? occupied,
@@ -45,6 +65,12 @@ class GameState extends Equatable {
     GameStatus? status,
     List<MoveRecord>? moveHistory,
     List<String>? availableTargets,
+    GameMode? mode,
+    Difficulty? difficulty,
+    Player? humanSide,
+    bool? paused,
+    bool? aiThinking,
+    bool? hasSavedGame,
   }) {
     return GameState(
       occupied: occupied ?? this.occupied,
@@ -54,12 +80,19 @@ class GameState extends Equatable {
       status: status ?? this.status,
       moveHistory: moveHistory ?? this.moveHistory,
       availableTargets: availableTargets ?? this.availableTargets,
+      mode: mode ?? this.mode,
+      difficulty: difficulty ?? this.difficulty,
+      humanSide: humanSide ?? this.humanSide,
+      paused: paused ?? this.paused,
+      aiThinking: aiThinking ?? this.aiThinking,
+      hasSavedGame: hasSavedGame ?? this.hasSavedGame,
     );
   }
 
   @override
   List<Object?> get props => [
         occupied, selectedNode, currentTurn, moveCount,
-        status, moveHistory, availableTargets,
+        status, moveHistory, availableTargets, mode,
+        difficulty, humanSide, paused, aiThinking, hasSavedGame,
       ];
 }

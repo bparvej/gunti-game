@@ -22,13 +22,13 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> load() async {
     final settings = await _repo.load();
-    emit(SettingsState(settings: settings));
+    emit(SettingsState(settings: settings, loaded: true));
     _audio.setEnabled(settings.soundOn);
     _haptics.setEnabled(settings.vibrationOn);
   }
 
   Future<void> _save(AppSettings s) async {
-    emit(SettingsState(settings: s));
+    emit(SettingsState(settings: s, loaded: state.loaded));
     await _repo.save(s);
   }
 
@@ -56,6 +56,22 @@ class SettingsCubit extends Cubit<SettingsState> {
 
   Future<void> setGutiShape(GutuShape shape) async {
     final s = state.settings.copyWith(gutiShape: shape);
+    await _save(s);
+  }
+
+  Future<void> setPlayerName(String playerName) async {
+    final name = playerName.trim().isEmpty ? 'Player 1' : playerName.trim();
+    final s = state.settings.copyWith(playerName: name);
+    await _save(s);
+  }
+
+  Future<void> setDifficulty(Difficulty difficulty) async {
+    final s = state.settings.copyWith(difficulty: difficulty);
+    await _save(s);
+  }
+
+  Future<void> completeOnboarding() async {
+    final s = state.settings.copyWith(hasOnboarded: true);
     await _save(s);
   }
 }

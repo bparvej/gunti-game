@@ -13,145 +13,268 @@ import '../../cubits/settings/settings_cubit.dart';
 import '../../cubits/settings/settings_state.dart';
 import '../../widgets/board_painter.dart';
 
-class GameScreen extends StatelessWidget {
-  const GameScreen({super.key});
+class GameScreen extends StatefulWidget {
+  final Map<String, String> params;
+  const GameScreen({super.key, required this.params});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_initialized) return;
+      _initialized = true;
+      _dispatchGameStart();
+    });
+  }
+
+  void _dispatchGameStart() {
+    final cubit = context.read<GameCubit>();
+    final params = widget.params;
+
+    if (params['continue'] == 'true') {
+      cubit.continueGame();
+    } else if (params['mode'] == 'single') {
+      final diffName = params['diff'] ?? 'medium';
+      final diff = Difficulty.values.firstWhere(
+        (d) => d.name == diffName,
+        orElse: () => Difficulty.medium,
+      );
+      final side = PlayerX.fromName(params['side'] ?? 'red');
+      cubit.startNewGame(
+        mode: GameMode.singlePlayer,
+        difficulty: diff,
+        humanSide: side,
+      );
+    } else {
+      cubit.startNewGame(
+        mode: GameMode.twoPlayers,
+        difficulty: Difficulty.medium,
+        humanSide: Player.red,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocBuilder<SettingsCubit, SettingsState>(
         builder: (context, settingsState) {
-          final settings = settingsState.settings;
-          final isDark = settings.isDarkMode;
-          final isBangla = settings.isBangla;
-          final gutiShape = settings.gutiShape;
-
-          final strings = isBangla ? AppStrings.bn : AppStrings.en;
+          final isBangla = settingsState.settings.isBangla;
+          final isDark = settingsState.settings.isDarkMode;
+          final gutiShape = settingsState.settings.gutiShape;
+          final s = isBangla ? AppStrings.bn : AppStrings.en;
           final lineColor = isDark ? Colors.white : AppColors.deepBlue;
 
-          return Stack(
-            children: [
-              SafeArea(
-                child: Column(
-                  children: [
-                    _buildAppBar(context, strings, isBangla, isDark),
-                    Expanded(
-                      child: BlocBuilder<GameCubit, GameState>(
-                        builder: (context, state) {
-                          return _GameBoardBody(
+          return BlocBuilder<GameCubit, GameState>(
+            builder: (context, state) {
+              return Stack(
+                children: [
+                  SafeArea(
+                    child: Column(
+                      children: [
+                        _buildAppBar(context, s, isBangla, isDark, state),
+                        Expanded(
+                          child: _GameBoardBody(
                             state: state,
                             gutiShape: gutiShape,
                             lineColor: lineColor,
                             onTap: context.read<GameCubit>().onNodeTap,
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+                        _buildBottomInfo(s, gutiShape, state),
+                      ],
                     ),
-                    _buildBottomInfo(context, strings, isBangla, gutiShape),
-                  ],
-                ),
-              ),
-              BlocBuilder<GameCubit, GameState>(
-                builder: (context, state) {
-                  if (state.status == GameStatus.ongoing) {
-                    return const SizedBox.shrink();
-                  }
-                  final winnerName = (state.status == GameStatus.redWin
-                          ? strings['redWins']
-                          : strings['blueWins']) ??
-                      '';
-                  return _WinOverlay(
-                    strings: strings,
-                    isBangla: isBangla,
-                    winnerName: winnerName,
-                    moveCount: state.moveCount,
-                    onPlayAgain: context.read<GameCubit>().newGame,
-                  );
-                },
-              ),
-            ],
+                  ),
+                  if (state.paused)
+                    _PauseOverlay(
+                      s: s,
+                      isBangla: isBangla,
+                      onResume: context.read<GameCubit>().resume,
+                      onReset: () => _confirmReset(context, s),
+                      onExit: () => context.go('/'),
+                    ),
+                  if (state.status != GameStatus.ongoing)
+                    _buildWinOverlay(context, s, isBangla, state),
+                ],
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context, Map<String, String> strings,
-      bool isBangla, bool isDark) {
-    return BlocBuilder<GameCubit, GameState>(
-      builder: (context, state) {
-        final redTurn = state.currentTurn == Player.red;
-        final turnColor = redTurn
+  Widget _buildAppBar(
+    BuildContext context,
+    Map<String, String> s,
+    bool isBangla,
+    bool isDark,
+    GameState state,
+  ) {
+    String turnText;
+    Color turnColor;
+
+    if (state.paused) {
+      turnText = s['pause'] ?? '';
+      turnColor = AppColors.white;
+    } else if (state.mode == GameMode.singlePlayer) {
+      if (state.aiThinking || state.isAiTurn) {
+        turnText = s['deviceThinking'] ?? '';
+        turnColor = AppColors.white;
+      } else {
+        turnText = s['yourTurn'] ?? '';
+        turnColor = state.humanSide == Player.red
             ? (isDark ? const Color(0xFFEF9A9A) : AppColors.red)
             : (isDark ? const Color(0xFF90CAF9) : AppColors.blue);
+      }
+    } else {
+      final redTurn = state.currentTurn == Player.red;
+      turnColor = redTurn
+          ? (isDark ? const Color(0xFFEF9A9A) : AppColors.red)
+          : (isDark ? const Color(0xFF90CAF9) : AppColors.blue);
+      turnText = redTurn ? (s['redTurn'] ?? '') : (s['blueTurn'] ?? '');
+    }
 
-        final title = redTurn ? strings['redTurn'] : strings['blueTurn'];
+    final canUndo =
+        state.moveHistory.isNotEmpty && state.status == GameStatus.ongoing;
+    final canPause = state.status == GameStatus.ongoing;
 
-        return Container(
-          color: AppColors.deepBlue,
-          padding: const EdgeInsets.only(
-            left: AppDimens.contentPadding,
-            right: AppDimens.contentPadding - 8,
-            top: 8,
-            bottom: 12,
+    return Container(
+      color: AppColors.deepBlue,
+      padding: const EdgeInsets.only(
+        left: AppDimens.contentPadding,
+        right: AppDimens.contentPadding - 8,
+        top: 8,
+        bottom: 12,
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => context.go('/'),
+            icon: const Icon(Icons.arrow_back, color: AppColors.white),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title ?? '',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.turn.copyWith(color: turnColor),
-                ),
-              ),
-              IconButton(
-                onPressed: () => context.read<GameCubit>().undo(),
-                icon: const Icon(Icons.undo, color: AppColors.white),
-                tooltip: strings['undo'],
-              ),
-              IconButton(
-                onPressed: () => context.push('/settings'),
-                icon: const Icon(Icons.settings, color: AppColors.white),
-                tooltip: strings['settings'],
-              ),
-            ],
+          Expanded(
+            child: Text(
+              turnText,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.turn.copyWith(color: turnColor),
+            ),
           ),
-        );
-      },
+          IconButton(
+            onPressed: canUndo ? () => context.read<GameCubit>().undo() : null,
+            icon: Icon(
+              Icons.undo,
+              color: canUndo
+                  ? AppColors.white
+                  : AppColors.white.withValues(alpha: 0.3),
+            ),
+            tooltip: s['undo'],
+          ),
+          IconButton(
+            onPressed: canPause
+                ? () => context.read<GameCubit>().pause()
+                : null,
+            icon: Icon(
+              Icons.pause,
+              color: canPause
+                  ? AppColors.white
+                  : AppColors.white.withValues(alpha: 0.3),
+            ),
+            tooltip: s['pause'],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBottomInfo(
-      BuildContext context, Map<String, String> strings, bool isBangla, GutuShape gutiShape) {
+    Map<String, String> s,
+    GutuShape gutiShape,
+    GameState state,
+  ) {
     final shapeNames = {
-      GutuShape.circle: strings['circle'],
-      GutuShape.square: strings['square'],
-      GutuShape.bar: strings['bar'],
-      GutuShape.lalBadshah: strings['lalBadshah'],
+      GutuShape.circle: s['circle'],
+      GutuShape.square: s['square'],
+      GutuShape.bar: s['bar'],
+      GutuShape.lalBadshah: s['lalBadshah'],
     };
 
-    return BlocBuilder<GameCubit, GameState>(
-      builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppDimens.contentPadding,
-            vertical: AppDimens.sectionGap,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.contentPadding,
+        vertical: AppDimens.sectionGap,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${s['moveCount']}: ${state.moveCount}',
+            style: AppTextStyles.subtitle,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${strings['moveCount']}: ${state.moveCount}',
-                style: AppTextStyles.subtitle,
-              ),
-              Text(
-                shapeNames[gutiShape] ?? '',
-                style: AppTextStyles.label,
-              ),
-            ],
+          Text(
+            shapeNames[gutiShape] ?? '',
+            style: AppTextStyles.label,
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWinOverlay(
+    BuildContext context,
+    Map<String, String> s,
+    bool isBangla,
+    GameState state,
+  ) {
+    String winnerName;
+    if (state.mode == GameMode.singlePlayer) {
+      final humanWon = (state.status == GameStatus.redWin &&
+              state.humanSide == Player.red) ||
+          (state.status == GameStatus.blueWin &&
+              state.humanSide == Player.blue);
+      winnerName = humanWon ? (s['youWin'] ?? '') : (s['deviceWins'] ?? '');
+    } else {
+      winnerName = state.status == GameStatus.redWin
+          ? (s['redWins'] ?? '')
+          : (s['blueWins'] ?? '');
+    }
+
+    return _WinOverlay(
+      s: s,
+      isBangla: isBangla,
+      winnerName: winnerName,
+      moveCount: state.moveCount,
+      onPlayAgain: context.read<GameCubit>().reset,
+      onExit: () => context.go('/'),
+    );
+  }
+
+  void _confirmReset(BuildContext context, Map<String, String> s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(s['confirmResetGame'] ?? ''),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s['confirmResetNo'] ?? 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<GameCubit>().reset();
+            },
+            child: Text(s['confirmResetYes'] ?? 'Yes'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -235,19 +358,91 @@ class _GameBoardBody extends StatelessWidget {
   }
 }
 
+class _PauseOverlay extends StatelessWidget {
+  final Map<String, String> s;
+  final bool isBangla;
+  final VoidCallback onResume;
+  final VoidCallback onReset;
+  final VoidCallback onExit;
+
+  const _PauseOverlay({
+    required this.s,
+    required this.isBangla,
+    required this.onResume,
+    required this.onReset,
+    required this.onExit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = isBangla ? AppTextStyles.bangla : AppTextStyles.win;
+
+    return Positioned.fill(
+      child: ColoredBox(
+        color: AppColors.deepBlue.withValues(alpha: 0.92),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                s['pause'] ?? '',
+                style: baseStyle,
+              ),
+              const SizedBox(height: 32),
+              TextButton(
+                onPressed: onResume,
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.orange,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 12,
+                  ),
+                ),
+                child: Text(
+                  s['resume'] ?? '',
+                  style: AppTextStyles.button,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: onReset,
+                child: Text(
+                  s['resetGame'] ?? '',
+                  style: AppTextStyles.button.copyWith(color: AppColors.white),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: onExit,
+                child: Text(
+                  s['exitToMenu'] ?? '',
+                  style: AppTextStyles.button.copyWith(color: AppColors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WinOverlay extends StatelessWidget {
-  final Map<String, String> strings;
+  final Map<String, String> s;
   final bool isBangla;
   final String winnerName;
   final int moveCount;
   final VoidCallback onPlayAgain;
+  final VoidCallback onExit;
 
   const _WinOverlay({
-    required this.strings,
+    required this.s,
     required this.isBangla,
     required this.winnerName,
     required this.moveCount,
     required this.onPlayAgain,
+    required this.onExit,
   });
 
   @override
@@ -264,7 +459,7 @@ class _WinOverlay extends StatelessWidget {
               const Text('👑', style: TextStyle(fontSize: 64)),
               const SizedBox(height: 8),
               Text(
-                strings['winnerCrown'] ?? 'WINNER!',
+                s['winnerCrown'] ?? 'WINNER!',
                 style: baseStyle,
               ),
               const SizedBox(height: 12),
@@ -274,7 +469,7 @@ class _WinOverlay extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${strings['moveCount']}: $moveCount',
+                '${s['moveCount']}: $moveCount',
                 style: AppTextStyles.subtitle.copyWith(color: AppColors.white),
               ),
               const SizedBox(height: 32),
@@ -289,8 +484,16 @@ class _WinOverlay extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  strings['playAgain'] ?? 'Play Again',
+                  s['playAgain'] ?? 'Play Again',
                   style: AppTextStyles.button,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: onExit,
+                child: Text(
+                  s['backToMenu'] ?? '',
+                  style: AppTextStyles.button.copyWith(color: AppColors.white),
                 ),
               ),
             ],
