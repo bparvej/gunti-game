@@ -7,11 +7,6 @@ node_modules/
 # TypeScript
 *.tsbuildinfo
 
-# Build output
-/build/
-/out/
-/lib/
-
 # Local env files
 .env
 .env.*
@@ -46,5 +41,13 @@ Thumbs.db
 
 # Misc
 *.tgz
+
+# === Flutter / Dart ===
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
 
 # Keep lockfiles (do not ignore package-lock.json or yarn.lock by default)

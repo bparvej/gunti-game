@@ -1,0 +1,52 @@
+name: bangla_guti
+description: "Bangla Guti Game - A traditional Bengali board game"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management / DI
+  flutter_bloc: ^9.0.0
+  equatable: ^2.0.7
+  get_it: ^8.0.0
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Functional programming
+  dartz: ^0.10.1
+
+  # Storage
+  shared_preferences: ^2.5.0
+
+  # Audio & haptics
+  audioplayers: ^6.3.0
+  vibration: ^3.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/sounds/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+          weight: 400
+    - family: AnekBangla
+      fonts:
+        - asset: assets/fonts/AnekBangla-Variable.ttf
+          weight: 400
