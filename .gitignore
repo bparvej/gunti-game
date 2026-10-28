@@ -49,5 +49,8 @@ Thumbs.db
 .packages
 build/
 *.iml
+.fvm/
+.fvmrc
+**/local.properties
 
 # Keep lockfiles (do not ignore package-lock.json or yarn.lock by default)
