@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../core/constants/ad_config.dart';
 import '../../core/theme/palette.dart';
 import '../widgets/chunky_button.dart';
 import '../widgets/level_bar.dart';
@@ -302,7 +303,7 @@ class _AdDialogState extends State<AdDialog> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          'AD · 0:05',
+                          'AD · ${AdConfig.publisherId} · 0:05',
                           style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w700),
                         ),
                       ),

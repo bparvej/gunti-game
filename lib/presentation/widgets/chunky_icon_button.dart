@@ -5,7 +5,7 @@ import '../controllers/app_state.dart';
 /// 3D Icon button with tactile press animation and rich bevel
 class ChunkyIconButton extends StatefulWidget {
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Color top, bottom, edge;
   final double size;
   final Color iconColor;
@@ -15,7 +15,7 @@ class ChunkyIconButton extends StatefulWidget {
   const ChunkyIconButton({
     super.key,
     required this.icon,
-    required this.onTap,
+    this.onTap,
     this.top = const Color(0xFFA567FF),
     this.bottom = const Color(0xFF7430E0),
     this.edge = const Color(0xFF4B1D9C),
@@ -38,16 +38,22 @@ class _ChunkyIconButtonState extends State<ChunkyIconButton> {
     final r = BorderRadius.circular(s * 0.34);
     final offset = _pressed ? 1.5 : 4.5;
 
+    final enabled = widget.onTap != null;
     Widget btn = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        app.haptic();
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
+      onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+      onTapUp: enabled
+          ? (_) {
+              setState(() => _pressed = false);
+              app.haptic();
+              widget.onTap!();
+            }
+          : null,
+      onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 150),
+        opacity: enabled ? 1.0 : 0.45,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 90),
         width: s,
         height: s,
@@ -92,7 +98,8 @@ class _ChunkyIconButtonState extends State<ChunkyIconButton> {
           ),
         ),
       ),
-    );
+    ),
+  );
 
     if (widget.tooltip != null) {
       btn = Tooltip(message: widget.tooltip!, child: btn);

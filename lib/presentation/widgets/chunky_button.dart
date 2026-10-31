@@ -7,7 +7,7 @@ class ChunkyButton extends StatelessWidget {
   final String? sub;
   final IconData? icon;
   final Color top, bottom, edge;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double height;
   final double fontSize;
 
@@ -19,28 +19,31 @@ class ChunkyButton extends StatelessWidget {
     required this.top,
     required this.bottom,
     required this.edge,
-    required this.onTap,
+    this.onTap,
     this.height = 64,
     this.fontSize = 21,
   });
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
     final r = BorderRadius.circular(22);
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: r,
-        boxShadow: [
-          BoxShadow(color: edge, offset: const Offset(0, 6)),
-          BoxShadow(
-            color: fade(Colors.black, .25),
-            blurRadius: 14,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Material(
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.45,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: r,
+          boxShadow: [
+            BoxShadow(color: edge, offset: const Offset(0, 6)),
+            BoxShadow(
+              color: fade(Colors.black, .25),
+              blurRadius: 14,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Material(
         color: Colors.transparent,
         child: Ink(
           decoration: BoxDecoration(
@@ -120,7 +123,8 @@ class ChunkyButton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 

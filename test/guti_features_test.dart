@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:bangla_guti/core/constants/ad_config.dart';
 import 'package:bangla_guti/core/storage/store.dart';
 import 'package:bangla_guti/core/theme/palette.dart';
 import 'package:bangla_guti/domain/game/game_enums.dart';
@@ -8,12 +10,14 @@ import 'package:bangla_guti/domain/game/game_models.dart';
 import 'package:bangla_guti/domain/game/rules.dart';
 import 'package:bangla_guti/presentation/controllers/app_state.dart';
 import 'package:bangla_guti/presentation/controllers/game_controller.dart';
+import 'package:bangla_guti/presentation/screens/game_screen.dart';
 
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await Store.init();
     app.load();
+    app.soundOn = false;
   });
 
   group('Pre-placed Board & Win Rules', () {
@@ -250,6 +254,70 @@ void main() {
       expect(c2.opponentPing, '28 ms');
       expect(c2.opponentRating, 1450);
       c2.dispose();
+    });
+  });
+
+  group('Undo & Layout & AdMob Publisher ID', () {
+    test('AdConfig has correct publisher ID pub-7652441110722652', () {
+      expect(AdConfig.publisherId, 'pub-7652441110722652');
+      expect(AdConfig.appId, contains('pub-7652441110722652'));
+      expect(AdConfig.bannerAdUnitId, contains('pub-7652441110722652'));
+      expect(AdConfig.interstitialAdUnitId, contains('pub-7652441110722652'));
+      expect(AdConfig.rewardedAdUnitId, contains('pub-7652441110722652'));
+    });
+
+    test('GameController undo reverts move correctly', () {
+      final c = GameController(mode: Mode.twoPlayer, difficulty: Difficulty.medium);
+      expect(c.canUndo, isFalse);
+      expect(c.state.turn, 1);
+      expect(c.state.ply, 0);
+
+      // Player 1 moves from node 7 to node 4
+      c.tap(7);
+      expect(c.selected, 7);
+      c.tap(4);
+      expect(c.state.b[4], 1);
+      expect(c.state.b[7], 0);
+      expect(c.state.turn, 2);
+      expect(c.canUndo, isTrue);
+
+      // Call undo
+      c.undo();
+      expect(c.canUndo, isFalse);
+      expect(c.state.turn, 1);
+      expect(c.state.ply, 0);
+      expect(c.state.b[7], 1);
+      expect(c.state.b[4], 0);
+      c.dispose();
+    });
+
+    testWidgets('GameScreen renders 2-column player info with VS, Undo button, and no 3/3 or score chip',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 850));
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: GameScreen(mode: Mode.twoPlayer),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify "VS" badge exists
+      expect(find.text('VS'), findsOneWidget);
+
+      // Verify no "3/3" weird count exists
+      expect(find.text('3/3'), findsNothing);
+
+      // Verify no "2 Players" mode header or "Score" chip exists
+      expect(find.text('2 PLAYERS'), findsNothing);
+      expect(find.textContaining('Score'), findsNothing);
+
+      // Verify no instructional message text exists
+      expect(find.textContaining('Pick a guti'), findsNothing);
+
+      // Verify Undo button exists (icon button in top bar and chunky button in bottom row)
+      expect(find.byIcon(Icons.undo_rounded), findsNWidgets(2));
+
+      await tester.binding.setSurfaceSize(null);
     });
   });
 }

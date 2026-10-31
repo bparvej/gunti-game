@@ -5,7 +5,6 @@ import '../../core/constants/strings.dart';
 import '../../core/theme/palette.dart';
 import '../../domain/game/ai.dart';
 import '../../domain/game/game_enums.dart';
-import '../../domain/game/rules.dart';
 import '../controllers/app_state.dart';
 import '../controllers/game_controller.dart';
 import '../dialogs/ad_dialog.dart';
@@ -227,228 +226,278 @@ class _GameScreenState extends State<GameScreen> {
     super.dispose();
   }
 
-  String _status() {
-    if (c.outcome == Outcome.p1) {
-      return tr('winsN', {'n': c.p1Name});
-    }
-    if (c.outcome == Outcome.p2) {
-      return tr('winsN', {'n': c.p2Name});
-    }
-    if (c.outcome == Outcome.draw) return tr('drawTitle');
-    if (c.autoActive) return tr('autoOn');
-    if (c.isOpponentThinking) return tr('opponentThinking');
-    if (c.thinking) return tr('thinking');
-    final placing = Rules.placed(c.state, c.state.turn) < 3;
-    final hint = placing ? tr('placeHint') : tr('moveHint');
-    if (c.counting && c.idleLeft <= 6) {
-      return '$hint\n${tr('autoIn', {'s': '${c.idleLeft}'})}';
-    }
-    return hint;
-  }
-
-  Widget _modeChip(int p) {
-    if (!app.autoEnabled || c.isComputer(p)) return const SizedBox.shrink();
-    final auto = c.isAuto(p);
-    if (!auto) return const SizedBox.shrink();
-    return GestureDetector(
-      onTap: () => c.takeOver(p),
-      child: Container(
-        margin: const EdgeInsets.only(left: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFA726),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.bolt_rounded, size: 11, color: Colors.white),
-            const SizedBox(width: 2),
-            Text(
-              tr('auto'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                letterSpacing: .6,
-                fontWeight: FontWeight.w800,
+  Widget _playersRow() {
+    return Row(
+      children: [
+        _playerCard(1),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF382375), Color(0xFF20124D)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF8B5CF6), width: 1.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Text(
+              'VS',
+              style: TextStyle(
+                color: Color(0xFFFFD54F),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.6,
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        _playerCard(2),
+      ],
     );
   }
 
-  Widget _playerRow(int p) {
+  Widget _playerCard(int p) {
     final name = p == 1 ? c.p1Name : c.p2Name;
     final active = c.outcome == Outcome.none && c.state.turn == p;
     final won = (p == 1 && c.outcome == Outcome.p1) ||
         (p == 2 && c.outcome == Outcome.p2);
-    final hl = active || won;
-    String turnLabel = '';
-    if (active) {
-      if (p == 2 && c.isOpponentThinking) {
-        turnLabel = tr('opponentThinking');
-      } else {
-        turnLabel = ((c.mode == Mode.vsComputer || c.mode == Mode.online) && p == 1)
-            ? tr('yourTurn')
-            : tr('turnOf', {'n': name});
-      }
-    }
+    final color = p == 1 ? (c.p1Color ?? pal.me) : (c.p2Color ?? pal.opp);
 
-    Widget trailing;
-    if (won) {
-      trailing =
-          const Icon(Icons.emoji_events_rounded, color: Pal.gold, size: 28);
-    } else if (active && c.isAuto(p)) {
-      trailing = const Icon(Icons.bolt_rounded,
-          color: Color(0xFFFFA726), size: 28);
-    } else if (active && c.counting) {
-      trailing = IdleRing(left: c.idleLeft, total: GameController.idleLimit);
-    } else if (active && p == 2 && c.isOpponentThinking) {
-      trailing = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: fade(Pal.green, .15),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Pal.green, width: 1.2),
+          color: won
+              ? const Color(0xFFFFF9C4)
+              : active
+                  ? pal.greenFill
+                  : pal.soft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: won
+                ? const Color(0xFFFFB300)
+                : active
+                    ? Pal.green
+                    : pal.border,
+            width: active || won ? 2.0 : 1.2,
+          ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: fade(Pal.green, .22),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            SizedBox(
-              width: 10,
-              height: 10,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Pal.greenDark),
-              ),
-            ),
-            SizedBox(width: 4),
-            Text('…',
-                style: TextStyle(
-                    color: Pal.greenDark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900)),
-          ],
-        ),
-      );
-    } else if (active) {
-      trailing = const Icon(Icons.check_circle_rounded,
-          color: Pal.greenDark, size: 28);
-    } else {
-      trailing = const SizedBox(width: 28, height: 28);
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: hl ? pal.greenFill : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: hl ? Pal.green : pal.border, width: 1.4),
-      ),
-      child: Row(
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              c.mode == Mode.online
-                  ? AvatarView(
-                      avatarIndex:
-                          p == 1 ? app.avatarIndex : c.opponentAvatarIndex,
-                      size: 34,
-                    )
-                  : Guti(
-                      color: p == 1
-                          ? (c.p1Color ?? pal.me)
-                          : (c.p2Color ?? pal.opp),
-                      size: 32),
-              if (c.mode == Mode.online)
-                Positioned(
-                  right: -2,
-                  bottom: -2,
-                  child: Container(
-                    width: 13,
-                    height: 13,
-                    decoration: BoxDecoration(
-                      color: p == 1
-                          ? (c.p1Color ?? pal.me)
-                          : (c.p2Color ?? pal.opp),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                c.mode == Mode.online
+                    ? AvatarView(
+                        avatarIndex:
+                            p == 1 ? app.avatarIndex : c.opponentAvatarIndex,
+                        size: 32,
+                      )
+                    : Guti(color: color, size: 28),
+                if (c.mode == Mode.online)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 11,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: pal.text,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700)),
+                if (c.isAuto(p))
+                  Positioned(
+                    left: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFFA726),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.bolt_rounded,
+                          size: 9, color: Colors.white),
                     ),
-                    if (c.mode == Mode.online) ...[
-                      const SizedBox(width: 6),
-                      Container(
+                  ),
+              ],
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: pal.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  if (won)
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.emoji_events_rounded,
+                            color: Color(0xFFF57C00), size: 12),
+                        SizedBox(width: 2),
+                        Text(
+                          'WINNER',
+                          style: TextStyle(
+                            color: Color(0xFFF57C00),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (c.isAuto(p))
+                    GestureDetector(
+                      onTap: () => c.takeOver(p),
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                            horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: fade(const Color(0xFF4CAF50), .15),
+                          color: const Color(0xFFFFA726),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF4CAF50),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
+                            Icon(Icons.bolt_rounded, size: 9, color: Colors.white),
+                            SizedBox(width: 1),
                             Text(
-                              p == 1 ? '24 ms' : c.opponentPing,
-                              style: const TextStyle(
-                                color: Color(0xFF2E7D32),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
+                              'AUTO',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                    _modeChip(p),
-                  ],
-                ),
-                if (turnLabel.isNotEmpty)
-                  Text(turnLabel,
+                    )
+                  else if (active &&
+                      p == 2 &&
+                      (c.isOpponentThinking || c.thinking))
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 8,
+                          height: 8,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.6,
+                            valueColor:
+                                AlwaysStoppedAnimation(Pal.greenDark),
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            tr('thinking'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Pal.greenDark,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (active)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Pal.greenDark,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        (p == 1 &&
+                                (c.mode == Mode.vsComputer ||
+                                    c.mode == Mode.online))
+                            ? tr('yourTurn').toUpperCase()
+                            : tr('turn').toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    )
+                  else if (c.mode == Mode.online)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF4CAF50),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          p == 1 ? '24 ms' : c.opponentPing,
+                          style: TextStyle(
+                            color: pal.sub,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      p == 1 ? tr('player1') : tr('player2'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          color: pal.sub,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500)),
-              ],
+                        color: pal.sub,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          Text('${Rules.placed(c.state, p)}/3',
-              style: TextStyle(
-                  color: pal.sub, fontSize: 12, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 10),
-          trailing,
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -459,11 +508,6 @@ class _GameScreenState extends State<GameScreen> {
       return ListenableBuilder(
         listenable: c,
         builder: (context, _) {
-          final modeLabel = c.mode == Mode.vsComputer
-              ? '${tr('vsComputer')} · ${diffName(c.difficulty)}'
-              : c.mode == Mode.online
-                  ? '${tr('onlineMatch')} · ${c.opponentPing}'
-                  : tr('twoPlayers');
           final progress =
               (c.state.ply / Ai.maxPly).clamp(0.0, 1.0).toDouble();
           return PopScope(
@@ -519,35 +563,19 @@ class _GameScreenState extends State<GameScreen> {
                                   tooltip: _hintsUsedThisGame == 0 ? tr('freeHint') : tr('hint'),
                                   onTap: () => _onHintTapped(context),
                                 ),
-                                Expanded(
-                                  child: Center(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(16),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [Color(0xFF382375), Color(0xFF20124D)],
-                                        ),
-                                        border: Border.all(color: const Color(0xFF6B4CC9), width: 1.6),
-                                        boxShadow: const [
-                                          BoxShadow(color: Color(0xFF130933), offset: Offset(0, 3)),
-                                        ],
-                                      ),
-                                      child: Text(
-                                        tr('moveN', {'n': (c.state.ply + 1).toString().padLeft(2, '0')}),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                const SizedBox(width: 8),
+                                ChunkyIconButton(
+                                  icon: Icons.undo_rounded,
+                                  size: 44,
+                                  top: c.canUndo ? const Color(0xFF4DD0E1) : const Color(0xFF6E56A3),
+                                  bottom: c.canUndo ? const Color(0xFF00ACC1) : const Color(0xFF4B357F),
+                                  edge: c.canUndo ? const Color(0xFF00838F) : const Color(0xFF2E1C59),
+                                  tooltip: tr('undo'),
+                                  onTap: c.canUndo ? () => c.undo() : null,
                                 ),
+                                const Spacer(),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
                                     gradient: const LinearGradient(
@@ -560,19 +588,13 @@ class _GameScreenState extends State<GameScreen> {
                                       BoxShadow(color: Color(0xFF130933), offset: Offset(0, 3)),
                                     ],
                                   ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.timer_outlined, color: Color(0xFFFFD54F), size: 16),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        fmtTime(c.seconds),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    tr('moveN', {'n': (c.state.ply + 1).toString().padLeft(2, '0')}),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -597,60 +619,25 @@ class _GameScreenState extends State<GameScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                    modeLabel.toUpperCase(),
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                        color: pal.sub,
-                                                        fontSize: 11,
-                                                        letterSpacing: 1,
-                                                        fontWeight:
-                                                            FontWeight.w600)),
-                                              ),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: pal.soft,
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                    '${tr('score')}  ${app.sessionP1} : ${app.sessionP2}',
-                                                    style: TextStyle(
-                                                        color: pal.text,
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w800)),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(_status(),
-                                              style: TextStyle(
-                                                  color: pal.text,
-                                                  fontSize: 17,
-                                                  height: 1.35,
-                                                  fontWeight: FontWeight.w700)),
                                           if (c.skipped)
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(top: 4),
-                                              child: Text(tr('skipped'),
-                                                  style: const TextStyle(
-                                                      color: Color(0xFFE0762E),
-                                                      fontSize: 12,
-                                                      fontWeight:
-                                                          FontWeight.w600)),
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 10),
+                                              padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFF3E0),
+                                                borderRadius: BorderRadius.circular(10),
+                                                border: Border.all(color: const Color(0xFFFFB74D)),
+                                              ),
+                                              child: Text(
+                                                tr('skipped'),
+                                                style: const TextStyle(
+                                                  color: Color(0xFFE65100),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
                                             ),
-                                          const SizedBox(height: 14),
                                           // 5s Auto-mode warning alert with CANCEL button
                                           if (c.isAutoWarning)
                                             Container(
@@ -754,9 +741,8 @@ class _GameScreenState extends State<GameScreen> {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(height: 8),
-                                          _playerRow(1),
-                                          _playerRow(2),
+                                          const SizedBox(height: 12),
+                                          _playersRow(),
                                         ],
                                       ),
                                     ),
@@ -787,16 +773,39 @@ class _GameScreenState extends State<GameScreen> {
                             const SizedBox(height: 14),
                             Padding(
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 32),
-                              child: ChunkyButton(
-                                label: tr('restart'),
-                                icon: Icons.refresh_rounded,
-                                top: const Color(0xFF9CF2A3),
-                                bottom: const Color(0xFF4FCB62),
-                                edge: const Color(0xFF2E9E43),
-                                height: 58,
-                                fontSize: 17,
-                                onTap: c.restart,
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: Row(
+                                children: [
+                                  if (c.mode != Mode.online) ...[
+                                    Expanded(
+                                      flex: 4,
+                                      child: ChunkyButton(
+                                        label: tr('undo'),
+                                        icon: Icons.undo_rounded,
+                                        top: c.canUndo ? const Color(0xFF4DD0E1) : const Color(0xFF6E56A3),
+                                        bottom: c.canUndo ? const Color(0xFF00ACC1) : const Color(0xFF4B357F),
+                                        edge: c.canUndo ? const Color(0xFF00838F) : const Color(0xFF2E1C59),
+                                        height: 54,
+                                        fontSize: 15,
+                                        onTap: c.canUndo ? c.undo : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                  ],
+                                  Expanded(
+                                    flex: c.mode != Mode.online ? 5 : 1,
+                                    child: ChunkyButton(
+                                      label: tr('restart'),
+                                      icon: Icons.refresh_rounded,
+                                      top: const Color(0xFF9CF2A3),
+                                      bottom: const Color(0xFF4FCB62),
+                                      edge: const Color(0xFF2E9E43),
+                                      height: 54,
+                                      fontSize: 15,
+                                      onTap: c.restart,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
