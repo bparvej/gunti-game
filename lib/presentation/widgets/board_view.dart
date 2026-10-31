@@ -1,19 +1,47 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../../core/audio/sfx.dart';
+import '../../core/constants/strings.dart';
 import '../../core/theme/palette.dart';
 import '../../domain/game/game_enums.dart';
 import '../controllers/app_state.dart';
 import '../controllers/game_controller.dart';
 import 'guti_view.dart';
+import 'hand_drag_anim.dart';
 import 'painters.dart';
 
-/// Board view with sliding pieces, touch handling, hint highlight,
-/// and first-time gameplay guidance.
-class BoardView extends StatelessWidget {
+/// Board view with sliding pieces, 1:1 real-time drag-and-drop handling,
+/// animated hand drag tutorial, and in-game hint demonstration.
+class BoardView extends StatefulWidget {
   final GameController c;
+
   BoardView({super.key, GameController? c, GameController? controller})
       : c = c ?? controller!;
+
+  @override
+  State<BoardView> createState() => _BoardViewState();
+}
+
+class _BoardViewState extends State<BoardView> {
+  GameController get c => widget.c;
+
+  int? _draggingFrom;
+  Offset? _dragPos;
+  int? _justDroppedPieceId;
+
+  int? _nodeAt(Offset localPos, Offset Function(int) pos, double hit) {
+    int? bestNode;
+    double bestDist = double.infinity;
+    for (var i = 0; i < 9; i++) {
+      final dist = (localPos - pos(i)).distance;
+      if (dist < hit * 0.72 && dist < bestDist) {
+        bestDist = dist;
+        bestNode = i;
+      }
+    }
+    return bestNode;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,98 +59,214 @@ class BoardView extends StatelessWidget {
       }
 
       final targets = c.targets;
-      final pickNode = (c.selected != null && targets.isNotEmpty)
-          ? targets[c.pick.clamp(0, targets.length - 1)]
-          : -1;
-
       final isFirstTime = !app.hasSeenTutorial &&
           c.outcome == Outcome.none &&
           c.state.turn == 1 &&
           c.state.ply == 0;
 
+      // Drop target hover detection during drag
+      int? hoverTarget;
+      if (_draggingFrom != null && _dragPos != null) {
+        final hovered = _nodeAt(_dragPos!, pos, hit);
+        if (hovered != null && targets.contains(hovered)) {
+          hoverTarget = hovered;
+        }
+      }
+
       return RepaintBoundary(
         child: SizedBox(
           width: s,
           height: s,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // board lines
-              Positioned.fill(
-                child: RepaintBoundary(
-                  child: CustomPaint(
-                    isComplex: true,
-                    willChange: false,
-                    painter: LinesPainter(pad, step, pal.line),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (details) {
+              if (c.outcome != Outcome.none) return;
+              final t = c.state.turn;
+              if (c.isComputer(t)) return;
+
+              final node = _nodeAt(details.localPosition, pos, hit);
+              if (node != null && c.state.b[node] == t) {
+                setState(() {
+                  _draggingFrom = node;
+                  _dragPos = details.localPosition;
+                  _justDroppedPieceId = null;
+                });
+                c.tap(node);
+              }
+            },
+            onPanUpdate: (details) {
+              if (_draggingFrom != null) {
+                setState(() {
+                  _dragPos = details.localPosition;
+                });
+              }
+            },
+            onPanEnd: (details) {
+              if (_draggingFrom != null && _dragPos != null) {
+                final target = _nodeAt(_dragPos!, pos, hit);
+                final from = _draggingFrom!;
+
+                // Identify the piece being dragged
+                final draggedPc = c.pcs.firstWhere(
+                  (p) => p.node == from,
+                  orElse: () => c.pcs.first,
+                );
+
+                if (target != null && target != from && targets.contains(target)) {
+                  // Direct clean drop: piece stays at target, no duplicate slide!
+                  setState(() {
+                    _justDroppedPieceId = draggedPc.id;
+                    _draggingFrom = null;
+                    _dragPos = null;
+                  });
+                  c.tryMove(from, target);
+                  Sfx.play('click');
+                  if (isFirstTime) {
+                    app.set(() => app.hasSeenTutorial = true);
+                  }
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() => _justDroppedPieceId = null);
+                    }
+                  });
+                } else {
+                  // Dropped invalidly: snap smoothly back to origin
+                  setState(() {
+                    _draggingFrom = null;
+                    _dragPos = null;
+                  });
+                }
+              } else {
+                setState(() {
+                  _draggingFrom = null;
+                  _dragPos = null;
+                });
+              }
+            },
+            onTapUp: (details) {
+              if (c.outcome != Outcome.none) return;
+              final node = _nodeAt(details.localPosition, pos, hit);
+              if (node != null) {
+                setState(() {
+                  _justDroppedPieceId = null;
+                });
+                c.tap(node);
+                if (isFirstTime && c.state.ply > 0) {
+                  app.set(() => app.hasSeenTutorial = true);
+                }
+              }
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // 1. Board lines
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      isComplex: true,
+                      willChange: false,
+                      painter: LinesPainter(pad, step, pal.line),
+                    ),
                   ),
                 ),
-              ),
-              // touch targets + empty-point markers
-              for (var i = 0; i < 9; i++)
-                Positioned(
-                  left: pos(i).dx - hit / 2,
-                  top: pos(i).dy - hit / 2,
-                  width: hit,
-                  height: hit,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      c.tap(i);
-                      if (isFirstTime && c.state.ply > 0) {
-                        app.set(() => app.hasSeenTutorial = true);
-                      }
-                    },
+
+                // 2. Empty-point markers & drop zone highlights
+                for (var i = 0; i < 9; i++)
+                  Positioned(
+                    left: pos(i).dx - hit / 2,
+                    top: pos(i).dy - hit / 2,
+                    width: hit,
+                    height: hit,
                     child: Center(
                       child: _marker(
                         c.state.b[i] == 0,
                         targets.contains(i),
-                        i == pickNode,
+                        hoverTarget == i,
                         c.hintMove != null && c.hintMove!.to == i,
                         d,
                       ),
                     ),
                   ),
-                ),
-              // pieces – slide (300ms) when their node changes
-              for (final pc in c.pcs)
-                AnimatedPositioned(
-                  key: ValueKey('pc${pc.id}'),
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOutCubic,
-                  left: pos(pc.node).dx - d / 2,
-                  top: pos(pc.node).dy - d / 2,
-                  width: d,
-                  height: d,
-                  child: RepaintBoundary(
-                    child: IgnorePointer(
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 380),
-                        curve: Curves.easeOutBack,
-                        builder: (context, v, child) =>
-                            Transform.scale(scale: v, child: child),
-                        child: Guti(
-                          color: pc.player == 1
-                              ? (c.p1Color ?? pal.me)
-                              : (c.p2Color ?? pal.opp),
-                          size: d,
-                          ring: (c.hintMove != null && c.hintMove!.from == pc.node) ||
-                              c.selected == pc.node ||
-                              (c.winLine?.contains(pc.node) ?? false),
-                          ringColor: (c.winLine?.contains(pc.node) ?? false)
-                              ? Pal.gold
-                              : (c.hintMove != null && c.hintMove!.from == pc.node)
-                                  ? const Color(0xFFFFD54F)
-                                  : Pal.green,
+
+                // 3. Pieces – 1:1 real-time drag positioning without double animation!
+                for (final pc in c.pcs) ...[
+                  Builder(builder: (context) {
+                    final isBeingDragged =
+                        _draggingFrom == pc.node && _dragPos != null;
+                    final isJustDropped = _justDroppedPieceId == pc.id;
+
+                    final left = isBeingDragged
+                        ? (_dragPos!.dx - d / 2)
+                        : (pos(pc.node).dx - d / 2);
+                    final top = isBeingDragged
+                        ? (_dragPos!.dy - d / 2)
+                        : (pos(pc.node).dy - d / 2);
+
+                    return AnimatedPositioned(
+                      key: ValueKey('pc${pc.id}'),
+                      // ZERO duration during drag and on drop -> moves exactly once!
+                      duration: (isBeingDragged || isJustDropped)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      left: left,
+                      top: top,
+                      width: d,
+                      height: d,
+                      child: RepaintBoundary(
+                        child: IgnorePointer(
+                          child: Transform.scale(
+                            scale: isBeingDragged ? 1.14 : 1.0,
+                            child: Guti(
+                              color: pc.player == 1
+                                  ? (c.p1Color ?? pal.me)
+                                  : (c.p2Color ?? pal.opp),
+                              size: d,
+                              ring: isBeingDragged ||
+                                  (c.hintMove != null &&
+                                      c.hintMove!.from == pc.node) ||
+                                  c.selected == pc.node ||
+                                  (c.winLine?.contains(pc.node) ?? false),
+                              ringColor: (c.winLine?.contains(pc.node) ?? false)
+                                  ? Pal.gold
+                                  : (c.hintMove != null &&
+                                          c.hintMove!.from == pc.node)
+                                      ? const Color(0xFFFFD54F)
+                                      : Pal.green,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    );
+                  }),
+                ],
+
+                // 4. Animated Hand Dragging for First-Time Tutorial
+                if (isFirstTime && _draggingFrom == null)
+                  HandDragAnim(
+                    from: pos(7),
+                    to: pos(4),
+                    coinSize: d,
+                    coinColor: c.p1Color ?? pal.me,
+                    label: tr('dragToMove'),
+                    isHint: false,
                   ),
-                ),
-              // First time how-to-play guidance overlay
-              if (isFirstTime)
-                _buildTutorialPointer(pos, d),
-            ],
+
+                // 5. Animated Hand Dragging for In-Game Best Move Hint
+                if (c.hintMove != null && _draggingFrom == null)
+                  HandDragAnim(
+                    from: pos(c.hintMove!.from),
+                    to: pos(c.hintMove!.to),
+                    coinSize: d,
+                    coinColor: (c.hintMove!.from >= 0 &&
+                            c.state.b[c.hintMove!.from] == 1)
+                        ? (c.p1Color ?? pal.me)
+                        : (c.p2Color ?? pal.opp),
+                    label: tr('bestMove'),
+                    isHint: true,
+                  ),
+              ],
+            ),
           ),
         ),
       );
@@ -132,19 +276,19 @@ class BoardView extends StatelessWidget {
   Widget _marker(
     bool empty,
     bool isTarget,
-    bool picked,
+    bool isHovered,
     bool isHintTarget,
     double d,
   ) {
     if (!empty) return const SizedBox.shrink();
     if (isHintTarget) {
       return Container(
-        width: d * .82,
-        height: d * .82,
+        width: d * .84,
+        height: d * .84,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: fade(const Color(0xFFFFD54F), .4),
-          border: Border.all(color: const Color(0xFFFFA000), width: 3.5),
+          color: fade(const Color(0xFFFFD54F), .35),
+          border: Border.all(color: const Color(0xFFFFA000), width: 3.0),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFFFFD54F).withAlpha(160),
@@ -163,15 +307,24 @@ class BoardView extends StatelessWidget {
       );
     }
     if (isTarget) {
-      final s = picked ? d * .86 : d * .6;
+      final s = isHovered ? d * .94 : d * .68;
       return AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: s,
         height: s,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: fade(Pal.green, picked ? .75 : .35),
-          border: Border.all(color: Pal.greenDark, width: picked ? 4 : 3),
+          color: fade(Pal.green, isHovered ? .8 : .4),
+          border: Border.all(color: Pal.greenDark, width: isHovered ? 4.5 : 3),
+          boxShadow: isHovered
+              ? [
+                  BoxShadow(
+                    color: Pal.green.withAlpha(180),
+                    blurRadius: 12,
+                    spreadRadius: 3,
+                  ),
+                ]
+              : null,
         ),
       );
     }
@@ -179,67 +332,6 @@ class BoardView extends StatelessWidget {
       width: d * .26,
       height: d * .26,
       decoration: BoxDecoration(color: pal.line, shape: BoxShape.circle),
-    );
-  }
-
-  Widget _buildTutorialPointer(Offset Function(int i) pos, double d) {
-    final targetNode = c.selected == null ? 7 : 4;
-    final p = pos(targetNode);
-    final text = c.selected == null
-        ? '1. Tap coin to select'
-        : '2. Tap center to move';
-
-    return Positioned(
-      left: p.dx - 80,
-      top: p.dy - (c.selected == null ? 72 : 68),
-      width: 160,
-      child: RepaintBoundary(
-        child: IgnorePointer(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.elasticOut,
-            builder: (context, val, child) =>
-                Transform.scale(scale: val, child: child),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E1B6B),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: const Color(0xFFFFD54F), width: 1.6),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x66000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    text,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_drop_down_rounded,
-                  color: Color(0xFFFFD54F),
-                  size: 26,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

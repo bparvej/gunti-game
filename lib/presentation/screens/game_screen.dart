@@ -246,110 +246,28 @@ class _GameScreenState extends State<GameScreen> {
     return hint;
   }
 
-  /// Small-screen helper: pick a target with a slider, then press MOVE.
-  Widget _sliderPanel() {
-    final t = c.targets;
-    final n = t.length;
-    final idx = c.pick.clamp(0, n - 1);
-    String lbl(int node) => 'R${node ~/ 3 + 1} · C${node % 3 + 1}';
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-      decoration: BoxDecoration(
-        color: pal.soft,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Pal.green, width: 1.6),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(tr('pickTarget'),
-                    style: TextStyle(
-                        color: pal.text,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700)),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Pal.green,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(lbl(t[idx]),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900)),
-              ),
-            ],
-          ),
-          if (n > 1)
-            Slider(
-              value: idx.toDouble(),
-              min: 0,
-              max: (n - 1).toDouble(),
-              divisions: n - 1,
-              label: lbl(t[idx]),
-              activeColor: Pal.greenDark,
-              onChanged: (v) => c.setPick(v.round()),
-            )
-          else
-            const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton(
-                  onPressed: c.cancelSelection,
-                  child: Text(tr('cancel'),
-                      style: TextStyle(
-                          color: pal.sub, fontWeight: FontWeight.w800)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: ChunkyButton(
-                  label: tr('move'),
-                  height: 46,
-                  fontSize: 14,
-                  top: const Color(0xFF9CF2A3),
-                  bottom: const Color(0xFF4FCB62),
-                  edge: const Color(0xFF2E9E43),
-                  onTap: c.moveToPicked,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-        ],
-      ),
-    );
-  }
-
   Widget _modeChip(int p) {
     if (!app.autoEnabled || c.isComputer(p)) return const SizedBox.shrink();
     final auto = c.isAuto(p);
+    if (!auto) return const SizedBox.shrink();
     return GestureDetector(
-      onTap: auto ? () => c.takeOver(p) : null,
+      onTap: () => c.takeOver(p),
       child: Container(
         margin: const EdgeInsets.only(left: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: auto ? const Color(0xFFFFA726) : pal.soft,
+          color: const Color(0xFFFFA726),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (auto)
-              const Icon(Icons.bolt_rounded, size: 11, color: Colors.white),
+            const Icon(Icons.bolt_rounded, size: 11, color: Colors.white),
+            const SizedBox(width: 2),
             Text(
-              auto ? tr('auto') : tr('manual'),
-              style: TextStyle(
-                color: auto ? Colors.white : pal.sub,
+              tr('auto'),
+              style: const TextStyle(
+                color: Colors.white,
                 fontSize: 9,
                 letterSpacing: .6,
                 fontWeight: FontWeight.w800,
@@ -836,14 +754,7 @@ class _GameScreenState extends State<GameScreen> {
                                               ),
                                             ),
                                           ),
-                                          if (MediaQuery.of(context).size.width <
-                                                  600 &&
-                                              c.outcome == Outcome.none &&
-                                              c.selected != null &&
-                                              c.targets.isNotEmpty &&
-                                              !c.isComputer(c.state.turn))
-                                            _sliderPanel(),
-                                          const SizedBox(height: 4),
+                                          const SizedBox(height: 8),
                                           _playerRow(1),
                                           _playerRow(2),
                                         ],

@@ -379,6 +379,27 @@ class GameController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Direct move method (for drag-and-drop or explicit selection).
+  bool tryMove(int from, int to) {
+    if (outcome != Outcome.none) return false;
+    final t = state.turn;
+    if (isComputer(t)) return false;
+    if (state.b[from] != t) return false;
+    if (state.b[to] != 0) return false;
+    if (!Rules.adj[from].contains(to)) return false;
+
+    if (isAuto(t)) {
+      _auto[t] = false;
+      _token++;
+      thinking = false;
+    }
+    idleLeft = idleLimit;
+    selected = null;
+    hintMove = null;
+    _play(Move(from, to));
+    return true;
+  }
+
   // mobile slider
   void setPick(int v) {
     pick = v;

@@ -77,6 +77,9 @@ const Map<String, List<String>> _s = <String, List<String>>{
   'tagline': ['3-GUTI STRATEGY GAME', '৩-গুটি স্ট্র্যাটেজি গেম'],
   'auto': ['AUTO', 'অটো'],
   'manual': ['MANUAL', 'ম্যানুয়াল'],
+  'dragToMove': ['Drag or tap to move', 'গুটি টেনে চাল দিন'],
+  'bestMove': ['Best Move', 'সেরা চাল'],
+  'dragDemo': ['Drag coins along lines to adjacent empty points', 'দাগ বরাবর পাশের খালি ঘরে গুটি টেনে চাল দিন'],
   'autoIn': ['Auto-play in {s}s', '{s} সেকেন্ডে অটো-প্লে চালু হবে'],
   'autoOn': [
     'Auto mode is playing for you – tap the board to take over',

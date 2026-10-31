@@ -70,7 +70,7 @@ class _HomeHeroState extends State<HomeHero>
 
   void _updateAnimation() {
     if (!mounted) return;
-    final tickerActive = TickerMode.of(context);
+    final tickerActive = TickerMode.getValuesNotifier(context).value.enabled;
     final isCurrent = ModalRoute.of(context)?.isCurrent ?? true;
     final appActive = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
