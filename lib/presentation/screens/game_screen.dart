@@ -132,6 +132,7 @@ class _GameScreenState extends State<GameScreen> {
           },
           onRestart: () {
             Navigator.of(ctx).pop();
+            _leaving = false;
             _hintsUsedThisGame = 0;
             c.restart();
           },
@@ -161,6 +162,10 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onChange() {
+    if (c.outcome == Outcome.none) {
+      _leaving = false;
+      return;
+    }
     if (c.outcome != Outcome.none && !_leaving) {
       _leaving = true;
       final res = c.result!;
@@ -604,170 +609,237 @@ class _GameScreenState extends State<GameScreen> {
                             LevelBar(value: progress, height: 10),
                             const SizedBox(height: 14),
                             Expanded(
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.fromLTRB(
-                                          18, 18, 18, 16),
-                                      decoration: BoxDecoration(
-                                        color: pal.card,
-                                        borderRadius: BorderRadius.circular(24),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          if (c.skipped)
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                          minHeight: constraints.maxHeight),
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
                                             Container(
-                                              margin: const EdgeInsets.only(bottom: 10),
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12, vertical: 6),
+                                              width: double.infinity,
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                      16, 16, 16, 16),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFFFF3E0),
-                                                borderRadius: BorderRadius.circular(10),
-                                                border: Border.all(color: const Color(0xFFFFB74D)),
-                                              ),
-                                              child: Text(
-                                                tr('skipped'),
-                                                style: const TextStyle(
-                                                  color: Color(0xFFE65100),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                          // 5s Auto-mode warning alert with CANCEL button
-                                          if (c.isAutoWarning)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 12),
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 14, vertical: 8),
-                                              decoration: BoxDecoration(
-                                                gradient: const LinearGradient(
-                                                  colors: [
-                                                    Color(0xFFFF5252),
-                                                    Color(0xFFD32F2F)
-                                                  ],
-                                                ),
+                                                color: pal.card,
                                                 borderRadius:
-                                                    BorderRadius.circular(16),
-                                                boxShadow: const [
-                                                  BoxShadow(
-                                                      color: Color(0xFFB71C1C),
-                                                      offset: Offset(0, 3)),
-                                                ],
+                                                    BorderRadius.circular(24),
                                               ),
-                                              child: Row(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
                                                 children: [
-                                                  const Icon(
-                                                      Icons.timer_rounded,
-                                                      color: Colors.white,
-                                                      size: 20),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      tr('autoMoveWarning', {
-                                                        's': '${c.idleLeft}'
-                                                      }),
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.w900,
-                                                        fontSize: 13,
+                                                  if (c.skipped)
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 10),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 12,
+                                                          vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                            0xFFFFF3E0),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(10),
+                                                        border: Border.all(
+                                                            color: const Color(
+                                                                0xFFFFB74D)),
+                                                      ),
+                                                      child: Text(
+                                                        tr('skipped'),
+                                                        style: const TextStyle(
+                                                          color:
+                                                              Color(0xFFE65100),
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                  ChunkyButton(
-                                                    label: tr('cancelAuto'),
-                                                    height: 34,
-                                                    fontSize: 12,
-                                                    top: const Color(0xFFFFF9C4),
-                                                    bottom:
-                                                        const Color(0xFFFFEE58),
-                                                    edge:
-                                                        const Color(0xFFFBC02D),
-                                                    onTap: c.cancelAutoTimer,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                                  // 5s Auto-mode warning alert with CANCEL button
+                                                  if (c.isAutoWarning)
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 12),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 8),
+                                                      decoration: BoxDecoration(
+                                                        gradient:
+                                                            const LinearGradient(
+                                                          colors: [
+                                                            Color(0xFFFF5252),
+                                                            Color(0xFFD32F2F)
+                                                          ],
+                                                        ),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(16),
+                                                        boxShadow: const [
+                                                          BoxShadow(
+                                                              color: Color(
+                                                                  0xFFB71C1C),
+                                                              offset:
+                                                                  Offset(0, 3)),
+                                                        ],
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(
+                                                              Icons
+                                                                  .timer_rounded,
+                                                              color:
+                                                                  Colors.white,
+                                                              size: 20),
+                                                          const SizedBox(
+                                                              width: 8),
+                                                          Expanded(
+                                                            child: Text(
+                                                              tr('autoMoveWarning',
+                                                                  {
+                                                                    's':
+                                                                        '${c.idleLeft}'
+                                                                  }),
+                                                              style:
+                                                                  const TextStyle(
+                                                                color: Colors
+                                                                    .white,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900,
+                                                                fontSize: 13,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          ChunkyButton(
+                                                            label:
+                                                                tr('cancelAuto'),
+                                                            height: 34,
+                                                            fontSize: 12,
+                                                            top: const Color(
+                                                                0xFFFFF9C4),
+                                                            bottom: const Color(
+                                                                0xFFFFEE58),
+                                                            edge: const Color(
+                                                                0xFFFBC02D),
+                                                            onTap: c
+                                                                .cancelAutoTimer,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
 
-                                          // First-time tutorial reminder
-                                          if (!app.hasSeenTutorial &&
-                                              c.state.ply == 0 &&
-                                              c.outcome == Outcome.none)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 12),
-                                              padding: const EdgeInsets.symmetric(
-                                                  horizontal: 14, vertical: 8),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFE8EAF6),
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                                border: Border.all(
-                                                    color: const Color(0xFF7986CB),
-                                                    width: 1.4),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Text('💡',
-                                                      style: TextStyle(
-                                                          fontSize: 18)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: Text(
-                                                      '${tr('firstTimeTutorial')}\n${tr('firstTimeTutorialNote')}',
-                                                      style: const TextStyle(
-                                                        color: Color(0xFF283593),
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        height: 1.3,
+                                                  // First-time tutorial reminder
+                                                  if (!app.hasSeenTutorial &&
+                                                      c.state.ply == 0 &&
+                                                      c.outcome == Outcome.none)
+                                                    Container(
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              bottom: 12),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 8),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(
+                                                            0xFFE8EAF6),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(14),
+                                                        border: Border.all(
+                                                            color: const Color(
+                                                                0xFF7986CB),
+                                                            width: 1.4),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Text('💡',
+                                                              style: TextStyle(
+                                                                  fontSize:
+                                                                      18)),
+                                                          const SizedBox(
+                                                              width: 8),
+                                                          Expanded(
+                                                            child: Text(
+                                                              '${tr('firstTimeTutorial')}\n${tr('firstTimeTutorialNote')}',
+                                                              style:
+                                                                  const TextStyle(
+                                                                color: Color(
+                                                                    0xFF283593),
+                                                                fontSize: 11,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                height: 1.3,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  Center(
+                                                    child: ConstrainedBox(
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                              maxWidth: 330),
+                                                      child: AspectRatio(
+                                                        aspectRatio: 1,
+                                                        child: BoardView(
+                                                            controller: c),
                                                       ),
                                                     ),
                                                   ),
+                                                  const SizedBox(height: 12),
+                                                  _playersRow(),
                                                 ],
                                               ),
                                             ),
-                                          Center(
-                                            child: ConstrainedBox(
-                                              constraints: const BoxConstraints(
-                                                  maxWidth: 330),
-                                              child: AspectRatio(
-                                                aspectRatio: 1,
-                                                child: BoardView(controller: c),
+                                            Container(
+                                              height: 10,
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 14),
+                                              decoration: BoxDecoration(
+                                                color: fade(Colors.white, .4),
+                                                borderRadius:
+                                                    const BorderRadius.vertical(
+                                                        bottom: Radius.circular(
+                                                            16)),
                                               ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          _playersRow(),
-                                        ],
+                                            Container(
+                                              height: 10,
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 28),
+                                              decoration: BoxDecoration(
+                                                color: fade(Colors.white, .2),
+                                                borderRadius:
+                                                    const BorderRadius.vertical(
+                                                        bottom: Radius.circular(
+                                                            16)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                    Container(
-                                      height: 10,
-                                      margin: const EdgeInsets.symmetric(
-                                          horizontal: 14),
-                                      decoration: BoxDecoration(
-                                        color: fade(Colors.white, .4),
-                                        borderRadius: const BorderRadius.vertical(
-                                            bottom: Radius.circular(16)),
-                                      ),
-                                    ),
-                                    Container(
-                                      height: 10,
-                                      margin: const EdgeInsets.symmetric(
-                                          horizontal: 28),
-                                      decoration: BoxDecoration(
-                                        color: fade(Colors.white, .2),
-                                        borderRadius: const BorderRadius.vertical(
-                                            bottom: Radius.circular(16)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  );
+                                },
                               ),
                             ),
                             const SizedBox(height: 14),
@@ -782,9 +854,15 @@ class _GameScreenState extends State<GameScreen> {
                                       child: ChunkyButton(
                                         label: tr('undo'),
                                         icon: Icons.undo_rounded,
-                                        top: c.canUndo ? const Color(0xFF4DD0E1) : const Color(0xFF6E56A3),
-                                        bottom: c.canUndo ? const Color(0xFF00ACC1) : const Color(0xFF4B357F),
-                                        edge: c.canUndo ? const Color(0xFF00838F) : const Color(0xFF2E1C59),
+                                        top: c.canUndo
+                                            ? const Color(0xFF4DD0E1)
+                                            : const Color(0xFF6E56A3),
+                                        bottom: c.canUndo
+                                            ? const Color(0xFF00ACC1)
+                                            : const Color(0xFF4B357F),
+                                        edge: c.canUndo
+                                            ? const Color(0xFF00838F)
+                                            : const Color(0xFF2E1C59),
                                         height: 54,
                                         fontSize: 15,
                                         onTap: c.canUndo ? c.undo : null,
@@ -802,7 +880,10 @@ class _GameScreenState extends State<GameScreen> {
                                       edge: const Color(0xFF2E9E43),
                                       height: 54,
                                       fontSize: 15,
-                                      onTap: c.restart,
+                                      onTap: () {
+                                        _leaving = false;
+                                        c.restart();
+                                      },
                                     ),
                                   ),
                                 ],

@@ -152,6 +152,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                   bottom: const Color(0xFF4FCB62),
                                   edge: const Color(0xFF2E9E43),
                                   height: 48,
+                                  fontSize: 15,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 22),
                                   onTap: () {
                                     app.set(() =>
                                         app.name = _nameCtrl.text.trim());

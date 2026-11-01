@@ -57,8 +57,7 @@ class _ResultDialogState extends State<ResultDialog>
       return const RibbonColors(
           Color(0xFF9D8CFF), Color(0xFF6A4FE0), Color(0xFF4B35B5), Color(0xFF3B2A99));
     }
-    if ((r.mode == Mode.vsComputer || r.mode == Mode.online) &&
-        r.outcome == Outcome.p2) {
+    if (r.outcome == Outcome.p2) {
       return const RibbonColors(
           Color(0xFFFF9A8F), Color(0xFFE04B4B), Color(0xFFB03030), Color(0xFF9C2626));
     }
@@ -68,8 +67,7 @@ class _ResultDialogState extends State<ResultDialog>
 
   String get _title {
     if (r.outcome == Outcome.draw) return tr('draw').toUpperCase();
-    if ((r.mode == Mode.vsComputer || r.mode == Mode.online) &&
-        r.outcome == Outcome.p2) {
+    if (r.outcome == Outcome.p2) {
       return tr('defeat').toUpperCase();
     }
     return tr('victory').toUpperCase();

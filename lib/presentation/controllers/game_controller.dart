@@ -464,12 +464,9 @@ class GameController extends ChangeNotifier {
       return;
     }
     if (Rules.moves(state).isEmpty) {
-      state = Rules.pass(state);
-      skipped = true;
-      if (Rules.moves(state).isEmpty) {
-        _finish(Outcome.draw);
-        return;
-      }
+      // The current player has no legal moves -> opponent wins!
+      _finish(state.turn == 1 ? Outcome.p2 : Outcome.p1);
+      return;
     }
     idleLeft = idleLimit;
     saveToApp();
@@ -539,10 +536,10 @@ class GameController extends ChangeNotifier {
     int stars;
     if (o == Outcome.draw) {
       stars = 1;
-    } else if (mode == Mode.twoPlayer) {
-      stars = 3;
     } else if (o == Outcome.p2) {
       stars = 0;
+    } else if (mode == Mode.twoPlayer) {
+      stars = 3;
     } else {
       stars = 1;
       if (difficulty != Difficulty.easy) stars++;
@@ -566,8 +563,7 @@ class GameController extends ChangeNotifier {
     // sound
     if (o == Outcome.draw) {
       Sfx.play('draw');
-    } else if ((mode == Mode.vsComputer || mode == Mode.online) &&
-        o == Outcome.p2) {
+    } else if (o == Outcome.p2) {
       Sfx.play('lose');
     } else {
       Sfx.play('win');

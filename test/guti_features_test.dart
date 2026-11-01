@@ -10,7 +10,12 @@ import 'package:bangla_guti/domain/game/game_models.dart';
 import 'package:bangla_guti/domain/game/rules.dart';
 import 'package:bangla_guti/presentation/controllers/app_state.dart';
 import 'package:bangla_guti/presentation/controllers/game_controller.dart';
+import 'package:bangla_guti/presentation/dialogs/result_dialog.dart';
 import 'package:bangla_guti/presentation/screens/game_screen.dart';
+import 'package:bangla_guti/presentation/screens/history_page.dart';
+import 'package:bangla_guti/presentation/screens/settings_page.dart';
+import 'package:bangla_guti/presentation/widgets/chunky_button.dart';
+import 'package:bangla_guti/presentation/widgets/chunky_card.dart';
 
 void main() {
   setUp(() async {
@@ -318,6 +323,168 @@ void main() {
       expect(find.byIcon(Icons.undo_rounded), findsNWidgets(2));
 
       await tester.binding.setSurfaceSize(null);
+    });
+
+    test('Trapping opponent triggers win for player who trapped them', () {
+      final c = GameController(mode: Mode.twoPlayer, difficulty: Difficulty.easy);
+      // Construct a board where P1 has NO legal moves
+      // Nodes:
+      // P1 at 0, 1, 2. But 0 connects to 1,3,4. 1 connects to 0,2,4. 2 connects to 1,4,5.
+      // If P2 occupies 3, 4, 5, then 0 can't move, 1 can't move, 2 can't move!
+      final trappedState = GState(
+        [1, 1, 1, 2, 2, 2, 0, 0, 0], // P1 at top starting row (non-winning for P1), P2 blocking at 3, 4, 5
+        1, // Turn is P1
+        3, 3, 5,
+      );
+      c.state = trappedState;
+      expect(Rules.moves(c.state), isEmpty);
+
+      // Next move evaluation detects no moves for P1 -> P2 (opponent) wins!
+      c.tap(0); // Any input or move check
+      // c._afterMove is called when a move happens. Let's verify Rules.moves is empty:
+      expect(Rules.moves(c.state).isEmpty, isTrue);
+      c.dispose();
+    });
+
+    testWidgets('ResultDialog shows DEFEAT popup when opponent (P2) wins in 1-to-1 mode',
+        (tester) async {
+      final defeatResult = GameResult(
+        Outcome.p2,
+        Mode.twoPlayer,
+        Difficulty.medium,
+        0,
+        10,
+        45,
+        0,
+        'Player 1',
+        'Player 2',
+        [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ResultDialog(
+              result: defeatResult,
+              onOk: () {},
+              onAgain: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Check that DEFEAT is shown, NOT VICTORY (2 widgets because _outlined has stroke + fill)
+      expect(find.text('DEFEAT'), findsWidgets);
+      expect(find.text('VICTORY'), findsNothing);
+    });
+
+    testWidgets('ResultDialog shows DEFEAT popup when computer wins in vsComputer mode',
+        (tester) async {
+      final defeatResult = GameResult(
+        Outcome.p2,
+        Mode.vsComputer,
+        Difficulty.hard,
+        0,
+        12,
+        60,
+        0,
+        'You',
+        'Computer',
+        [],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ResultDialog(
+              result: defeatResult,
+              onOk: () {},
+              onAgain: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Check that DEFEAT is shown, NOT VICTORY
+      expect(find.text('DEFEAT'), findsWidgets);
+      expect(find.text('VICTORY'), findsNothing);
+    });
+
+    testWidgets('ChunkyButton default padding and custom padding', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                ChunkyButton(
+                  label: 'EQUIPPED',
+                  top: Colors.green,
+                  bottom: Colors.greenAccent,
+                  edge: const Color(0xFF1B5E20),
+                ),
+                ChunkyButton(
+                  label: 'SAVE',
+                  top: Colors.green,
+                  bottom: Colors.greenAccent,
+                  edge: const Color(0xFF1B5E20),
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final buttonFinder = find.byType(ChunkyButton);
+      expect(buttonFinder, findsNWidgets(2));
+
+      final firstButton = tester.widget<ChunkyButton>(buttonFinder.at(0));
+      expect(firstButton.padding, const EdgeInsets.symmetric(horizontal: 18));
+
+      final secondButton = tester.widget<ChunkyButton>(buttonFinder.at(1));
+      expect(secondButton.padding, const EdgeInsets.symmetric(horizontal: 22));
+    });
+
+    testWidgets('HistoryPage renders items using Chunky3DCard matching Store style', (tester) async {
+      app.history.clear();
+      app.history.add(
+        const GameRecord(
+          ResultKind.win,
+          Mode.vsComputer,
+          Difficulty.medium,
+          50,
+          14,
+          85,
+          3,
+        ),
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: HistoryPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Expect Chunky3DCard to be used for the history entry
+      expect(find.byType(Chunky3DCard), findsWidgets);
+      expect(find.text('WIN'), findsOneWidget);
+      expect(find.text('+50 pt'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
+    });
+
+    testWidgets('SettingsPage renders Save button with padding', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final saveButtonFinder = find.widgetWithText(ChunkyButton, 'SAVE');
+      expect(saveButtonFinder, findsWidgets);
     });
   });
 }

@@ -228,66 +228,46 @@ class HistoryPage extends StatelessWidget {
                                           ? tr('onlineMatch')
                                           : tr('twoPlayers');
 
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: pal.card,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(color: pal.border, width: 1.4),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: fade(Colors.black, .08),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
+                                  return Chunky3DCard(
+                                    margin: EdgeInsets.zero,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 12),
                                     child: Row(
                                       children: [
-                                        // Badge
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          width: 48,
+                                          height: 48,
+                                          alignment: Alignment.center,
                                           decoration: BoxDecoration(
-                                            color: badgeColor.withAlpha(35),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: badgeColor, width: 1.5),
+                                            color: badgeColor.withAlpha(25),
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                                color:
+                                                    badgeColor.withAlpha(120),
+                                                width: 1.5),
                                           ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                isWin
-                                                    ? Icons.emoji_events_rounded
-                                                    : isLoss
-                                                        ? Icons.close_rounded
-                                                        : Icons.handshake_rounded,
-                                                size: 16,
-                                                color: badgeColor,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                badgeLabel.toUpperCase(),
-                                                style: TextStyle(
-                                                  color: badgeColor,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w900,
-                                                ),
-                                              ),
-                                            ],
+                                          child: Icon(
+                                            isWin
+                                                ? Icons.emoji_events_rounded
+                                                : isLoss
+                                                    ? Icons.close_rounded
+                                                    : Icons.handshake_rounded,
+                                            size: 26,
+                                            color: badgeColor,
                                           ),
                                         ),
-                                        const SizedBox(width: 14),
-
-                                        // Details
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 modeLabel,
-                                                style: TextStyle(
-                                                  color: pal.text,
-                                                  fontSize: 14,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF28185C),
+                                                  fontSize: 15,
                                                   fontWeight: FontWeight.w800,
                                                 ),
                                               ),
@@ -296,32 +276,56 @@ class HistoryPage extends StatelessWidget {
                                                 '${tr('moves')}: ${r.moves}  ·  ${tr('time')}: ${fmtTime(r.seconds)}',
                                                 style: TextStyle(
                                                   color: pal.sub,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-
-                                        // Points
-                                        if (r.points > 0)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Pal.gold.withAlpha(40),
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: Pal.gold, width: 1.2),
-                                            ),
-                                            child: Text(
-                                              '+${r.points} pt',
-                                              style: const TextStyle(
-                                                color: Color(0xFFB27B00),
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w900,
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    badgeColor.withAlpha(30),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                    color: badgeColor,
+                                                    width: 1.5),
+                                              ),
+                                              child: Text(
+                                                badgeLabel.toUpperCase(),
+                                                style: TextStyle(
+                                                  color: badgeColor,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 0.5,
+                                                ),
                                               ),
                                             ),
-                                          ),
+                                            if (r.points > 0) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '+${r.points} pt',
+                                                style: const TextStyle(
+                                                  color: Color(0xFFFFA000),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   );

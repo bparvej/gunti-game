@@ -10,6 +10,7 @@ class ChunkyButton extends StatelessWidget {
   final VoidCallback? onTap;
   final double height;
   final double fontSize;
+  final EdgeInsetsGeometry padding;
 
   const ChunkyButton({
     super.key,
@@ -22,6 +23,7 @@ class ChunkyButton extends StatelessWidget {
     this.onTap,
     this.height = 64,
     this.fontSize = 21,
+    this.padding = const EdgeInsets.symmetric(horizontal: 18),
   });
 
   @override
@@ -72,50 +74,55 @@ class ChunkyButton extends StatelessWidget {
                   ),
                 ),
                 Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (icon != null)
-                        Icon(icon, color: Colors.white, size: 30),
-                      if (icon != null && label.isNotEmpty)
-                        const SizedBox(width: 8),
-                      if (label.isNotEmpty)
-                        Flexible(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: fontSize,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                  shadows: [
-                                    Shadow(
-                                      color: edge,
-                                      offset: const Offset(0, 2.5),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (sub != null)
+                  child: Padding(
+                    padding: padding,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (icon != null)
+                          Icon(icon,
+                              color: Colors.white,
+                              size: height <= 48 ? 20 : 30),
+                        if (icon != null && label.isNotEmpty)
+                          const SizedBox(width: 8),
+                        if (label.isNotEmpty)
+                          Flexible(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Text(
-                                  sub!,
+                                  label,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: fade(Colors.white, .92),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                    fontSize: fontSize,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1,
+                                    shadows: [
+                                      Shadow(
+                                        color: edge,
+                                        offset: const Offset(0, 2.5),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                            ],
+                                if (sub != null)
+                                  Text(
+                                    sub!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: fade(Colors.white, .92),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
